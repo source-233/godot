@@ -30,6 +30,7 @@
 
 #pragma once
 
+#include "servers/rendering/renderer_rd/effects/restir.h"
 #include "servers/rendering/renderer_rd/pipeline_deferred_rd.h"
 #include "servers/rendering/renderer_rd/shaders/effects/screen_space_reflection.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/screen_space_reflection_downsample.glsl.gen.h"
@@ -41,6 +42,9 @@
 #include "servers/rendering/renderer_rd/shaders/effects/ssao_blur.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssao_importance_map.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssao_interleave.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/effects/ssgi.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/effects/ssgi_resolve.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/effects/ssgi_sdftrace.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssil.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssil_blur.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssil_importance_map.glsl.gen.h"
@@ -53,6 +57,7 @@
 #define RB_SCOPE_SSIL SNAME("rb_ssil")
 #define RB_SCOPE_SSAO SNAME("rb_ssao")
 #define RB_SCOPE_SSR SNAME("rb_ssr")
+#define RB_SCOPE_SSGI SNAME("rb_ssgi")
 
 #define RB_LINEAR_DEPTH SNAME("linear_depth")
 #define RB_FINAL SNAME("final")
@@ -67,6 +72,12 @@
 #define RB_HIZ SNAME("hiz")
 #define RB_SSR SNAME("ssr")
 #define RB_MIP_LEVEL SNAME("mip_level")
+
+#define RB_SSGI SNAME("ssgi")
+#define RB_HISTORY SNAME("history")
+#define RB_HISTORY_HIZ SNAME("history_hiz")
+#define RB_NUM_FRAMES_ACCUMULATED SNAME("num_frames_accumulated")
+#define RB_HISTORY_NUM_FRAMES_ACCUMULATED SNAME("history_num_frames_accumulated")
 
 class RenderSceneBuffersRD;
 
@@ -152,6 +163,26 @@ public:
 
 	void ssr_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSRRenderBuffers &p_ssr_buffers, const RD::DataFormat p_color_format);
 	void screen_space_reflection(Ref<RenderSceneBuffersRD> p_render_buffers, SSRRenderBuffers &p_ssr_buffers, const RID *p_normal_roughness_slices, int p_max_steps, float p_fade_in, float p_fade_out, float p_tolerance, const Projection *p_projections, const Projection *p_reprojections, const Vector3 *p_eye_offsets, RendererRD::CopyEffects &p_copy_effects);
+
+	/* Screen Space Global Illumination */
+	void ssgi_set_half_size(bool p_half_size);
+
+	struct SSGIRenderBuffers {
+		Size2i size;
+		uint32_t mipmaps = 1;
+		bool half_size = true;
+	};
+
+	struct SSGISettings {
+		int max_steps = 64;
+		float depth_tolerance = 0.5F;
+		float intensity = 1.0F;
+
+		Size2i full_screen_size;
+	};
+
+	void ssgi_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSGIRenderBuffers &p_ssgi_buffers, const RD::DataFormat p_color_format);
+	void screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_render_buffers, SSGIRenderBuffers &p_ssgi_buffers, const RID *p_normal_roughness_slices, const Projection *p_projections, const Projection *p_reprojections, const Transform3D &p_transform, const Vector3 *p_eye_offsets, RendererRD::CopyEffects &p_copy_effects, const SSGISettings &p_settings);
 
 	/* subsurface scattering */
 	void sss_set_quality(RS::SubSurfaceScatteringQuality p_quality);
@@ -497,6 +528,74 @@ private:
 		RID resolve_shader_version;
 		PipelineDeferredRD resolve_pipeline;
 	} ssr;
+
+	/* Screen Space Global Illumination */
+
+	enum SSGIHizMode {
+		SSGI_HIZ_DEFAULT,
+		SSGI_HIZ_ODD_WIDTH,
+		SSGI_HIZ_ODD_HEIGHT,
+		SSGI_HIZ_ODD_WIDTH_AND_HEIGHT,
+		SSGI_HIZ_MAX
+	};
+
+	enum ReSTIRUniformSet {
+		RESTIR_UNIFORM_SET = 1
+	};
+
+	struct SSGIHizPushConstant {
+		int32_t screen_size[2];
+		int32_t pad[2];
+	};
+
+	struct SSGISceneData {
+		float projection[2][16];
+		float inv_projection[2][16];
+		float reprojection[2][16];
+		float inv_view_matrix[16];
+		float view_matrix[16];
+		float eye_offset[2][4];
+	};
+
+	struct SSGIPushConstant {
+		int32_t screen_size[2];
+		int32_t compute_size[2];
+		int32_t mipmaps;
+		int32_t num_steps;
+		float depth_tolerance;
+		float intensity;
+		uint32_t view_index;
+		uint32_t frame_count;
+	};
+
+	struct SSGISdftracePushConstant {
+		int32_t screen_size[2];
+		int32_t compute_size[2];
+		float intensity;
+		int view_index;
+		uint32_t frame_count;
+
+		float y_mult;
+		float grid_size[3];
+		uint32_t max_cascades;
+	};
+
+	struct SSGI {
+		ScreenSpaceReflectionHizShaderRD hiz_shader;
+		RID hiz_shader_version;
+		PipelineDeferredRD hiz_pipelines[SSGI_HIZ_MAX];
+
+		SsgiShaderRD ssgi_shader;
+		RID ssgi_shader_version;
+		PipelineDeferredRD ssgi_pipeline;
+		RID ubo;
+
+		SsgiSdftraceShaderRD sdftrace_shader;
+		RID sdftrace_shader_version;
+		PipelineDeferredRD sdftrace_pipeline;
+
+		ReSTIR restir[2];
+	} ssgi;
 
 	/* Subsurface scattering */
 

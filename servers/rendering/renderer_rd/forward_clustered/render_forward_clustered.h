@@ -109,9 +109,13 @@ public:
 			Projection ssr_last_frame_projections[RendererSceneRender::MAX_RENDER_VIEWS];
 			Transform3D ssr_last_frame_transform;
 
+			Projection ssgi_last_frame_projections[RendererSceneRender::MAX_RENDER_VIEWS];
+			Transform3D ssgi_last_frame_transform;
+			
 			RendererRD::SSEffects::SSILRenderBuffers ssil;
 			RendererRD::SSEffects::SSAORenderBuffers ssao;
 			RendererRD::SSEffects::SSRRenderBuffers ssr;
+			RendererRD::SSEffects::SSGIRenderBuffers ssgi;
 		} ss_effects_data;
 
 		enum DepthFrameBufferType {
@@ -770,8 +774,9 @@ private:
 	void _process_ssao(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, const RID *p_normal_buffers, const Projection *p_projections);
 	void _process_ssil(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, const RID *p_normal_buffers, const Projection *p_projections, const Transform3D &p_transform);
 	void _process_ssr(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, const RID *p_normal_slices, const Projection *p_projections, const Vector3 *p_eye_offsets, const Transform3D &p_transform);
-	void _copy_framebuffer_to_ss_effects(Ref<RenderSceneBuffersRD> p_render_buffers, bool p_use_ssil, bool p_use_ssr);
-	void _pre_opaque_render(RenderDataRD *p_render_data, bool p_use_ssao, bool p_use_ssil, bool p_use_ssr, bool p_use_gi, const RID *p_normal_roughness_slices, RID p_voxel_gi_buffer);
+	void _process_ssgi(Ref<RenderSceneBuffersRD> p_render_buffers, RID p_environment, const RID *p_normal_slices, const Projection *p_projections, const Vector3 *p_eye_offsets, const Transform3D &p_transform);
+	void _copy_framebuffer_to_ss_effects(Ref<RenderSceneBuffersRD> p_render_buffers);
+	void _pre_opaque_render(RenderDataRD *p_render_data, bool p_use_ssao, bool p_use_ssil, bool p_use_ssr, bool p_use_ssgi, bool p_use_gi, const RID *p_normal_roughness_slices, RID p_voxel_gi_buffer);
 	void _process_sss(Ref<RenderSceneBuffersRD> p_render_buffers, const Projection &p_camera);
 
 	/* Debug */

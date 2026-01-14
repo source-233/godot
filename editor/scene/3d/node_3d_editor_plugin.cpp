@@ -4325,6 +4325,9 @@ void Node3DEditorViewport::_menu_option(int p_option) {
 		case VIEW_DISPLAY_DEBUG_SCENE_LUMINANCE:
 		case VIEW_DISPLAY_DEBUG_SSAO:
 		case VIEW_DISPLAY_DEBUG_SSIL:
+		case VIEW_DISPLAY_DEBUG_SSGI_STAGE1:
+		case VIEW_DISPLAY_DEBUG_SSGI_STAGE2:
+		case VIEW_DISPLAY_DEBUG_SSGI_STAGE3:
 		case VIEW_DISPLAY_DEBUG_PSSM_SPLITS:
 		case VIEW_DISPLAY_DEBUG_DECAL_ATLAS:
 		case VIEW_DISPLAY_DEBUG_SDFGI:
@@ -4353,6 +4356,9 @@ void Node3DEditorViewport::_menu_option(int p_option) {
 				VIEW_DISPLAY_DEBUG_SCENE_LUMINANCE,
 				VIEW_DISPLAY_DEBUG_SSAO,
 				VIEW_DISPLAY_DEBUG_SSIL,
+				VIEW_DISPLAY_DEBUG_SSGI_STAGE1,
+				VIEW_DISPLAY_DEBUG_SSGI_STAGE2,
+				VIEW_DISPLAY_DEBUG_SSGI_STAGE3,
 				VIEW_DISPLAY_DEBUG_GI_BUFFER,
 				VIEW_DISPLAY_DEBUG_DISABLE_LOD,
 				VIEW_DISPLAY_DEBUG_PSSM_SPLITS,
@@ -4383,6 +4389,9 @@ void Node3DEditorViewport::_menu_option(int p_option) {
 				Viewport::DEBUG_DRAW_SCENE_LUMINANCE,
 				Viewport::DEBUG_DRAW_SSAO,
 				Viewport::DEBUG_DRAW_SSIL,
+				Viewport::DEBUG_DRAW_SSGI_STAGE1,
+				Viewport::DEBUG_DRAW_SSGI_STAGE2,
+				Viewport::DEBUG_DRAW_SSGI_STAGE3,
 				Viewport::DEBUG_DRAW_GI_BUFFER,
 				Viewport::DEBUG_DRAW_DISABLE_LOD,
 				Viewport::DEBUG_DRAW_PSSM_SPLITS,
@@ -6327,6 +6336,13 @@ Node3DEditorViewport::Node3DEditorViewport(Node3DEditor *p_spatial_editor, int p
 			TTRC("Displays the screen-space ambient occlusion buffer. Requires SSAO to be enabled in Environment to have a visible effect."));
 	_add_advanced_debug_draw_mode_item(display_submenu, TTRC("SSIL"), VIEW_DISPLAY_DEBUG_SSIL, SupportedRenderingMethods::FORWARD_PLUS,
 			TTRC("Displays the screen-space indirect lighting buffer. Requires SSIL to be enabled in Environment to have a visible effect."));
+	display_submenu->add_separator();
+	_add_advanced_debug_draw_mode_item(display_submenu, TTRC("SSGI_stage1"), VIEW_DISPLAY_DEBUG_SSGI_STAGE1, SupportedRenderingMethods::FORWARD_PLUS,
+			TTRC(""));
+	_add_advanced_debug_draw_mode_item(display_submenu, TTRC("SSGI_stage2"), VIEW_DISPLAY_DEBUG_SSGI_STAGE2, SupportedRenderingMethods::FORWARD_PLUS,
+			TTRC(""));
+	_add_advanced_debug_draw_mode_item(display_submenu, TTRC("SSGI_stage3"), VIEW_DISPLAY_DEBUG_SSGI_STAGE3, SupportedRenderingMethods::FORWARD_PLUS,
+			TTRC(""));
 	display_submenu->add_separator();
 	_add_advanced_debug_draw_mode_item(display_submenu, TTRC("VoxelGI/SDFGI Buffer"), VIEW_DISPLAY_DEBUG_GI_BUFFER, SupportedRenderingMethods::FORWARD_PLUS,
 			TTRC("Requires SDFGI or VoxelGI to be enabled to have a visible effect."));

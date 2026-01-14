@@ -149,6 +149,13 @@ private:
 
 	void _update_ssil();
 
+	// SSGI
+	bool ssgi_enabled = false;
+	int ssgi_max_steps = 64;
+	float ssgi_depth_tolerance = 0.5;
+	float ssgi_intensity = 1.0;
+	void _update_ssgi();
+
 	// SDFGI
 	bool sdfgi_enabled = false;
 	int sdfgi_cascades = 4;
@@ -322,6 +329,16 @@ public:
 	float get_ssil_sharpness() const;
 	void set_ssil_normal_rejection(float p_normal_rejection);
 	float get_ssil_normal_rejection() const;
+
+	// SSGI
+	void set_ssgi_enabled(bool p_enabled);
+	bool is_ssgi_enabled() const;
+	void set_ssgi_max_steps(int p_steps);
+	int get_ssgi_max_steps() const;
+	void set_ssgi_depth_tolerance(float p_depth_tolerance);
+	float get_ssgi_depth_tolerance() const;
+	void set_ssgi_intensity(float p_intensity);
+	float get_ssgi_intensity() const;
 
 	// SDFGI
 	void set_sdfgi_enabled(bool p_enabled);

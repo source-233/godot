@@ -1341,6 +1341,14 @@ public:
 
 	PASS6(environment_set_ssil_quality, RS::EnvironmentSSILQuality, bool, float, int, float, float)
 
+	// SSGI
+	PASS5(environment_set_ssgi, RID, bool, int, float, float)
+
+	PASS1RC(bool, environment_get_ssgi_enabled, RID)
+	PASS1RC(int, environment_get_ssgi_max_steps, RID)
+	PASS1RC(float, environment_get_ssgi_depth_tolerance, RID)
+	PASS1RC(float, environment_get_ssgi_intensity, RID)
+
 	// SDFGI
 
 	PASS11(environment_set_sdfgi, RID, bool, int, float, RS::EnvironmentSDFGIYScale, bool, float, bool, float, float, float)

@@ -1158,6 +1158,9 @@ public:
 		VIEWPORT_DEBUG_DRAW_SCENE_LUMINANCE,
 		VIEWPORT_DEBUG_DRAW_SSAO,
 		VIEWPORT_DEBUG_DRAW_SSIL,
+		VIEWPORT_DEBUG_DRAW_SSGI_STAGE1,
+		VIEWPORT_DEBUG_DRAW_SSGI_STAGE2,
+		VIEWPORT_DEBUG_DRAW_SSGI_STAGE3,
 		VIEWPORT_DEBUG_DRAW_PSSM_SPLITS,
 		VIEWPORT_DEBUG_DRAW_DECAL_ATLAS,
 		VIEWPORT_DEBUG_DRAW_SDFGI,
@@ -1342,6 +1345,8 @@ public:
 	};
 
 	virtual void environment_set_ssil_quality(EnvironmentSSILQuality p_quality, bool p_half_size, float p_adaptive_target, int p_blur_passes, float p_fadeout_from, float p_fadeout_to) = 0;
+
+	virtual void environment_set_ssgi(RID p_env, bool p_enable, int p_max_steps, float p_depth_tolerance, float p_intensity) = 0;
 
 	enum EnvironmentSDFGIYScale {
 		ENV_SDFGI_Y_SCALE_50_PERCENT,

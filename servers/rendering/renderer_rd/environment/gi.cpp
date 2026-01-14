@@ -2377,6 +2377,7 @@ void GI::SDFGI::render_static_lights(RenderDataRD *p_render_data, Ref<RenderScen
 
 	RendererRD::LightStorage *light_storage = RendererRD::LightStorage::get_singleton();
 
+	RENDER_TIMESTAMP("SDFGI Update lights");
 	RD::get_singleton()->draw_command_begin_label("SDFGI Render Static Lights");
 
 	update_cascades();
