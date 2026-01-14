@@ -32,6 +32,7 @@
 
 #include "core/config/project_settings.h"
 #include "servers/rendering/renderer_rd/effects/copy_effects.h"
+#include "servers/rendering/renderer_rd/effects/restir.h"
 #include "servers/rendering/renderer_rd/storage_rd/material_storage.h"
 #include "servers/rendering/renderer_rd/storage_rd/render_scene_buffers_rd.h"
 #include "servers/rendering/renderer_rd/uniform_set_cache_rd.h"
@@ -342,6 +343,45 @@ SSEffects::SSEffects() {
 		}
 	}
 
+	// SSGI
+	{
+		{
+			Vector<String> ssgi_hiz_modes;
+			ssgi_hiz_modes.push_back("\n"); // SSGI_HIZ_DEFAULT
+			ssgi_hiz_modes.push_back("\n#define MODE_ODD_WIDTH\n"); // SSGI_HIZ_ODD_WIDTH
+			ssgi_hiz_modes.push_back("\n#define MODE_ODD_HEIGHT\n"); // SSGI_HIZ_ODD_HEIGHT
+			ssgi_hiz_modes.push_back("\n#define MODE_ODD_WIDTH\n#define MODE_ODD_HEIGHT\n"); // SSGI_HIZ_ODD_WIDTH_AND_HEIGHT
+
+			ssgi.hiz_shader.initialize(ssgi_hiz_modes);
+			ssgi.hiz_shader_version = ssgi.hiz_shader.version_create();
+
+			for (uint32_t i = 0; i < SSGI_HIZ_MAX; i++) {
+				ssgi.hiz_pipelines[i].create_compute_pipeline(ssgi.hiz_shader.version_get_shader(ssgi.hiz_shader_version, i));
+			}
+		}
+
+		{
+			Vector<String> ssgi_modes;
+			ssgi_modes.push_back("\n");
+			String defines = "\n#define RESTIR_UNIFORM_SET " + itos(RESTIR_UNIFORM_SET) + "\n";
+
+			ssgi.ssgi_shader.initialize(ssgi_modes, defines);
+			ssgi.ssgi_shader_version = ssgi.ssgi_shader.version_create();
+
+			ssgi.ssgi_pipeline.create_compute_pipeline(ssgi.ssgi_shader.version_get_shader(ssgi.ssgi_shader_version, 0));
+		}
+
+		{
+			Vector<String> ssgi_resolve_modes;
+			ssgi_resolve_modes.push_back("\n");
+
+			ssgi.resolve_shader.initialize(ssgi_resolve_modes);
+			ssgi.resolve_shader_version = ssgi.resolve_shader.version_create();
+
+			ssgi.resolve_pipeline.create_compute_pipeline(ssgi.resolve_shader.version_get_shader(ssgi.resolve_shader_version, 0));
+		}
+	}
+
 	// Subsurface scattering
 	sss_quality = RS::SubSurfaceScatteringQuality(int(GLOBAL_GET("rendering/environment/subsurface_scattering/subsurface_scattering_quality")));
 	sss_scale = GLOBAL_GET("rendering/environment/subsurface_scattering/subsurface_scattering_scale");
@@ -441,6 +481,23 @@ SSEffects::~SSEffects() {
 
 		if (ssr.ubo.is_valid()) {
 			RD::get_singleton()->free_rid(ssr.ubo);
+		}
+	}
+
+	{
+		// Cleanup SSGI
+		for (int i = 0; i < SSGI_HIZ_MAX; i++) {
+			ssgi.hiz_pipelines[i].free();
+		}
+		ssgi.ssgi_pipeline.free();
+		ssgi.resolve_pipeline.free();
+
+		ssgi.hiz_shader.version_free(ssgi.hiz_shader_version);
+		ssgi.ssgi_shader.version_free(ssgi.ssgi_shader_version);
+		ssgi.resolve_shader.version_free(ssgi.resolve_shader_version);
+
+		if (ssgi.ubo.is_valid()) {
+			RD::get_singleton()->free_rid(ssgi.ubo);
 		}
 	}
 
@@ -1729,6 +1786,288 @@ void SSEffects::screen_space_reflection(Ref<RenderSceneBuffersRD> p_render_buffe
 
 		RD::get_singleton()->draw_command_end_label();
 	}
+}
+
+/* Screen Space Global Illumination */
+
+void SSEffects::ssgi_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers, SSGIRenderBuffers &p_ssgi_buffers, const RD::DataFormat p_color_format) {
+	Vector2i internal_size = p_render_buffers->get_internal_size();
+	p_ssgi_buffers.size = p_ssgi_buffers.half_size ? (internal_size / 2) : internal_size;
+
+	uint32_t cur_width = p_ssgi_buffers.size.width;
+	uint32_t cur_height = p_ssgi_buffers.size.height;
+	p_ssgi_buffers.mipmaps = 1;
+
+	while (cur_width > 1 && cur_height > 1) {
+		if (cur_width > 1) {
+			cur_width /= 2;
+		}
+		if (cur_height > 1) {
+			cur_height /= 2;
+		}
+		++p_ssgi_buffers.mipmaps;
+	}
+
+	uint32_t view_count = p_render_buffers->get_view_count();
+
+	bool should_create = true;
+	bool has_texture = p_render_buffers->has_texture(RB_SCOPE_SSGI, RB_HISTORY);
+
+	if (has_texture) {
+		RID ssgi_texture = p_render_buffers->get_texture(RB_SCOPE_SSGI, RB_HISTORY);
+		RD::TextureFormat texture_format = RD::get_singleton()->texture_get_format(ssgi_texture);
+		should_create = texture_format.width != (uint32_t)p_ssgi_buffers.size.width || texture_format.height != (uint32_t)p_ssgi_buffers.size.height || texture_format.array_layers != view_count;
+	}
+
+	if (should_create) {
+		if (has_texture) {
+			p_render_buffers->clear_context(RB_SCOPE_SSGI);
+		}
+
+		RID clear_texture;
+		clear_texture = p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_HISTORY, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
+		RD::get_singleton()->texture_clear(clear_texture, Color(0, 0, 0, 0), 0, 1, 0, view_count);
+		clear_texture = p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_FINAL, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
+		RD::get_singleton()->texture_clear(clear_texture, Color(0, 0, 0, 0), 0, 1, 0, view_count);
+	}
+
+	p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_HIZ, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, p_ssgi_buffers.mipmaps);
+	p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_SSGI, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
+}
+
+void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_render_buffers, SSGIRenderBuffers &p_ssgi_buffers, const RID *p_normal_roughness_slices, const Projection *p_projections, const Projection *p_reprojections, const Transform3D &p_transform, const Vector3 *p_eye_offsets, RendererRD::CopyEffects &p_copy_effects, const SSGISettings &p_settings) {
+	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
+	ERR_FAIL_NULL(uniform_set_cache);
+	MaterialStorage *material_storage = MaterialStorage::get_singleton();
+	ERR_FAIL_NULL(material_storage);
+
+	uint32_t view_count = p_render_buffers->get_view_count();
+
+	Projection inv_view_matrix = Projection(p_transform);
+	Projection view_matrix = Projection(p_transform.affine_inverse());
+
+	{
+		// Store some scene data in a UBO, in the near future we will use a UBO shared with other shaders
+		SSGISceneData scene_data{};
+
+		if (ssgi.ubo.is_null()) {
+			ssgi.ubo = RD::get_singleton()->uniform_buffer_create(sizeof(SSGISceneData));
+		}
+
+		Projection correction;
+		correction.set_depth_correction(true);
+
+		for (uint32_t v = 0; v < view_count; v++) {
+			Projection projection = correction * p_projections[v];
+
+			store_camera(projection, scene_data.projection[v]);
+			store_camera(projection.inverse(), scene_data.inv_projection[v]);
+			store_camera(p_reprojections[v], scene_data.reprojection[v]);
+			scene_data.eye_offset[v][0] = p_eye_offsets[v].x;
+			scene_data.eye_offset[v][1] = p_eye_offsets[v].y;
+			scene_data.eye_offset[v][2] = p_eye_offsets[v].z;
+			scene_data.eye_offset[v][3] = 0.0f;
+		}
+		store_camera(inv_view_matrix, scene_data.inv_view_matrix);
+		store_camera(view_matrix, scene_data.view_matrix);
+
+		RD::get_singleton()->buffer_update(ssgi.ubo, 0, sizeof(SSGISceneData), &scene_data);
+
+		for (uint32_t v = 0; v < view_count; v++) {
+			ReSTIR::ReSTIRSetting restir_setting{};
+			restir_setting.reservoir_size[0] = p_ssgi_buffers.size.width;
+			restir_setting.reservoir_size[1] = p_ssgi_buffers.size.height;
+			restir_setting.temporal_pos_threshold = 0.05f;
+			restir_setting.spatial_resampling_kernel_radius = 1.0;
+			restir_setting.spatial_num_samples = 4;
+			restir_setting.spatial_resampling_pass_index = 0;
+			restir_setting.spatial_resampling_occlusion_screen_trace_distance = 10.0;
+			restir_setting.resampling_depth_error_threshold = 0.01;
+			restir_setting.resampling_normal_dot_threshold = 0.5;
+			ssgi.restir[v].set_setting(restir_setting);
+			ssgi.restir[v].allocate_buffers(p_ssgi_buffers.size);
+		}
+	}
+
+	RID linear_sampler = material_storage->sampler_rd_get_default(RS::CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS, RS::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+	RID nearest_sampler = material_storage->sampler_rd_get_default(RS::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS, RS::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED);
+
+	{
+		RD::get_singleton()->draw_command_begin_label("SSGI Copy Depth");
+
+		for (uint32_t v = 0; v < view_count; v++) {
+			RID src_texture = p_render_buffers->get_depth_texture(v);
+			RID dest_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0);
+			p_copy_effects.copy_depth_to_rect(src_texture, dest_texture, Rect2i(Vector2i(), p_ssgi_buffers.size));
+		}
+
+		RD::get_singleton()->draw_command_end_label();
+	}
+
+	{
+		RD::get_singleton()->draw_command_begin_label("SSGI HI-Z");
+
+		for (uint32_t v = 0; v < view_count; v++) {
+			for (uint32_t m = 1; m < p_ssgi_buffers.mipmaps; m++) {
+				SSGIHizPushConstant push_constant{};
+				push_constant.screen_size[0] = MAX(1, p_ssgi_buffers.size.width >> m);
+				push_constant.screen_size[1] = MAX(1, p_ssgi_buffers.size.height >> m);
+
+				RID source = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, m - 1);
+				RID dest = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, m);
+
+				Size2i parent_size = RD::get_singleton()->texture_size(source);
+				bool is_width_odd = (parent_size.width % 2) != 0;
+				bool is_height_odd = (parent_size.height % 2) != 0;
+
+				int32_t hiz_mode;
+				if (is_width_odd && is_height_odd) {
+					hiz_mode = SSGI_HIZ_ODD_WIDTH_AND_HEIGHT;
+				} else if (is_width_odd) {
+					hiz_mode = SSGI_HIZ_ODD_WIDTH;
+				} else if (is_height_odd) {
+					hiz_mode = SSGI_HIZ_ODD_HEIGHT;
+				} else {
+					hiz_mode = SSGI_HIZ_DEFAULT;
+				}
+
+				RID hiz_shader = ssgi.hiz_shader.version_get_shader(ssgi.hiz_shader_version, hiz_mode);
+
+				RD::Uniform u_source(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 0, Vector<RID>{ nearest_sampler, source });
+				RD::Uniform u_dest(RD::UNIFORM_TYPE_IMAGE, 1, dest);
+
+				RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
+
+				RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, ssgi.hiz_pipelines[hiz_mode].get_rid());
+				RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(hiz_shader, 0, u_source, u_dest), 0);
+				RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
+				RD::get_singleton()->compute_list_dispatch_threads(compute_list, push_constant.screen_size[0], push_constant.screen_size[1], 1);
+
+				RD::get_singleton()->compute_list_end();
+			}
+		}
+		RD::get_singleton()->draw_command_end_label();
+	}
+
+	{
+		RD::get_singleton()->draw_command_begin_label("SSGI Main");
+
+		RID ssgi_shader = ssgi.ssgi_shader.version_get_shader(ssgi.ssgi_shader_version, 0);
+
+		for (uint32_t v = 0; v < view_count; v++) {
+			RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
+
+			RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, ssgi.ssgi_pipeline.get_rid());
+
+			SSGIPushConstant push_constant{};
+			push_constant.screen_size[0] = p_ssgi_buffers.size.width;
+			push_constant.screen_size[1] = p_ssgi_buffers.size.height;
+			push_constant.mipmaps = p_ssgi_buffers.mipmaps;
+			push_constant.intensity = p_settings.intensity;
+			push_constant.depth_tolerance = p_settings.depth_tolerance;
+			push_constant.num_steps = p_settings.max_steps;
+			push_constant.orthogonal = p_projections[v].is_orthogonal();
+			push_constant.view_index = v;
+			push_constant.frame_count = RSG::rasterizer->get_frame_number();
+
+			RID last_frame_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSLF, RB_LAST_FRAME, v, 0);
+
+			RID hiz_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0, 1, p_ssgi_buffers.mipmaps);
+			RID normal_roughness_texture = p_normal_roughness_slices[v];
+			RID ssgi_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_SSGI, v, 0);
+
+			RD::Uniform u_scene_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 0, ssgi.ubo);
+			RD::Uniform u_last_frame(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 1, Vector<RID>{ linear_sampler, last_frame_texture });
+			RD::Uniform u_hiz(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 2, Vector<RID>{ nearest_sampler, hiz_texture });
+			RD::Uniform u_normal_roughness(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 3, Vector<RID>{ nearest_sampler, normal_roughness_texture });
+			RD::Uniform u_ssgi(RD::UNIFORM_TYPE_IMAGE, 4, ssgi_texture);
+
+			RID restir_uniform_set = ssgi.restir[v].init_uniform_set(ssgi_shader, RESTIR_UNIFORM_SET);
+
+			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(ssgi_shader, 0, u_last_frame, u_hiz, u_normal_roughness, u_ssgi, u_scene_data), 0);
+			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, restir_uniform_set, RESTIR_UNIFORM_SET);
+			RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
+			RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height, 1);
+
+			RD::get_singleton()->compute_list_end();
+		}
+
+		RD::get_singleton()->draw_command_end_label();
+	}
+
+	{
+		Projection correction;
+		correction.set_depth_correction(true);
+
+		for (uint32_t v = 0; v < view_count; v++) {
+			ReSTIR::SceneData scene_data{};
+			Projection projection = correction * p_projections[v];
+
+			store_camera(projection, scene_data.projection);
+			store_camera(projection.inverse(), scene_data.inv_projection);
+			store_camera(p_reprojections[v], scene_data.reprojection);
+			scene_data.eye_offset[0] = p_eye_offsets[v].x;
+			scene_data.eye_offset[1] = p_eye_offsets[v].y;
+			scene_data.eye_offset[2] = p_eye_offsets[v].z;
+			scene_data.eye_offset[3] = 0.0f;
+			store_camera(inv_view_matrix, scene_data.inv_view_matrix);
+			store_camera(view_matrix, scene_data.view_matrix);
+
+			ReSTIR::ReSTIRResource restir_resource;
+			restir_resource.normal_roughness_texture = p_normal_roughness_slices[v];
+			restir_resource.depth_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0);
+			restir_resource.history_depth_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0);
+			restir_resource.result_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_FINAL, v, 0);
+			restir_resource.history_result_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY, v, 0);
+
+			ssgi.restir[v].process(p_render_buffers, restir_resource, scene_data);
+		}
+	}
+
+	{ //TODO: Validate Reservoirs
+	}
+
+	{ //TODO: Temproal Accumulation
+	}
+
+	{ //TODO: Spatial Bliateral Filter
+	}
+
+	// {
+	// 	RD::get_singleton()->draw_command_begin_label("SSGI Resolve");
+	// 	RID resolve_shader = ssgi.resolve_shader.version_get_shader(ssgi.resolve_shader_version, 0);
+
+	// 	for (uint32_t v = 0; v < view_count; v++) {
+	// 		RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
+	// 		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, ssgi.resolve_pipeline.get_rid());
+
+	// 		SSGIResolvePushConstant push_constant;
+	// 		push_constant.screen_size[0] = p_ssgi_buffers.size.width;
+	// 		push_constant.screen_size[1] = p_ssgi_buffers.size.height;
+	// 		push_constant.view_index = v;
+	// 		push_constant.weight = 32;
+	// 		RID ssgi_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_SSGI, v, 0);
+	// 		RID ssgi_history = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY, v, 0);
+	// 		RID hiz_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0, 1, p_ssgi_buffers.mipmaps);
+	// 		RID ssgi_final = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_FINAL, v, 0);
+
+	// 		RD::Uniform u_scene_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 0, ssgi.ubo);
+	// 		RD::Uniform u_ssgi(RD::UNIFORM_TYPE_IMAGE, 1, ssgi_texture);
+	// 		RD::Uniform u_history(RD::UNIFORM_TYPE_IMAGE, 2, ssgi_history);
+	// 		RD::Uniform u_hiz(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 3, Vector<RID>{ nearest_sampler, hiz_texture });
+	// 		RD::Uniform u_final(RD::UNIFORM_TYPE_IMAGE, 4, ssgi_final);
+
+	// 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(resolve_shader, 0, u_ssgi, u_history, u_hiz, u_final, u_scene_data), 0);
+	// 		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
+	// 		RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height, 1);
+
+	// 		RD::get_singleton()->compute_list_end();
+
+	// 		p_copy_effects.copy_to_rect(ssgi_final, ssgi_history, Rect2(0, 0, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height));
+	// 	}
+
+	// 	RD::get_singleton()->draw_command_end_label();
+	// }
 }
 
 /* Subsurface scattering */

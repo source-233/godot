@@ -808,6 +808,46 @@ float RendererEnvironmentStorage::environment_get_ssil_normal_rejection(RID p_en
 	return env->ssil_normal_rejection;
 }
 
+// SSGI
+
+void RendererEnvironmentStorage::environment_set_ssgi(RID p_env, bool p_enable, int p_max_steps, float p_depth_tolerance, float p_intensity) {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL(env);
+#ifdef DEBUG_ENABLED
+	if (OS::get_singleton()->get_current_rendering_method() != "forward_plus" && p_enable) {
+		WARN_PRINT_ONCE_ED("Screen-space global illumination (SSGI) is only available when using the Forward+ renderer.");
+	}
+#endif
+	env->ssgi_enabled = p_enable;
+	env->ssgi_max_steps = p_max_steps;
+	env->ssgi_depth_tolerance = p_depth_tolerance;
+	env->ssgi_intensity = p_intensity;
+}
+
+bool RendererEnvironmentStorage::environment_get_ssgi_enabled(RID p_env) const {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, false);
+	return env->ssgi_enabled;
+}
+
+int RendererEnvironmentStorage::environment_get_ssgi_max_steps(RID p_env) const {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, 64);
+	return env->ssgi_max_steps;
+}
+
+float RendererEnvironmentStorage::environment_get_ssgi_depth_tolerance(RID p_env) const {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, 0.5);
+	return env->ssgi_depth_tolerance;
+}
+
+float RendererEnvironmentStorage::environment_get_ssgi_intensity(RID p_env) const {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, 1.0);
+	return env->ssgi_intensity;
+}
+
 // SDFGI
 
 void RendererEnvironmentStorage::environment_set_sdfgi(RID p_env, bool p_enable, int p_cascades, float p_min_cell_size, RS::EnvironmentSDFGIYScale p_y_scale, bool p_use_occlusion, float p_bounce_feedback, bool p_read_sky, float p_energy, float p_normal_bias, float p_probe_bias) {

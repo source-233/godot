@@ -236,6 +236,13 @@ public:
 
 	virtual void environment_set_ssil_quality(RS::EnvironmentSSILQuality p_quality, bool p_half_size, float p_adaptive_target, int p_blur_passes, float p_fadeout_from, float p_fadeout_to) = 0;
 
+	// SSGI
+	void environment_set_ssgi(RID p_env, bool p_enable, int p_max_steps, float p_depth_tolerance, float p_intensity);
+	bool environment_get_ssgi_enabled(RID p_env) const;
+	int environment_get_ssgi_max_steps(RID p_env) const;
+	float environment_get_ssgi_depth_tolerance(RID p_env) const;
+	float environment_get_ssgi_intensity(RID p_env) const;
+
 	// SDFGI
 	void environment_set_sdfgi(RID p_env, bool p_enable, int p_cascades, float p_min_cell_size, RS::EnvironmentSDFGIYScale p_y_scale, bool p_use_occlusion, float p_bounce_feedback, bool p_read_sky, float p_energy, float p_normal_bias, float p_probe_bias);
 	bool environment_get_sdfgi_enabled(RID p_env) const;

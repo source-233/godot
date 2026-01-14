@@ -2113,6 +2113,18 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 	}
 
+	//process ssgi
+	if (bool(implementation_data.ss_effects_flags & SCREEN_SPACE_EFFECTS_FLAGS_USE_SSGI)) {
+#ifdef USE_MULTIVIEW
+		vec4 ssgi = textureLod(sampler2DArray(ssgi_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), vec3(screen_uv, ViewIndex), 0);
+#else
+		vec4 ssgi = textureLod(sampler2D(ssgi_buffer, SAMPLER_LINEAR_WITH_MIPMAPS_CLAMP), screen_uv, 0);
+#endif // USE_MULTIVIEW
+
+		ambient_light *= 1.0 - ssgi.a;
+		ambient_light += ssgi.rgb * ssgi.a * albedo.rgb;
+	}
+
 	//finalize ambient light here
 	{
 		ambient_light *= ao;

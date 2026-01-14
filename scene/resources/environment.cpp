@@ -465,6 +465,53 @@ void Environment::_update_ssil() {
 			ssil_normal_rejection);
 }
 
+// SSGI
+
+void Environment::set_ssgi_enabled(bool p_enabled) {
+	ssgi_enabled = p_enabled;
+	_update_ssgi();
+}
+
+bool Environment::is_ssgi_enabled() const {
+	return ssgi_enabled;
+}
+
+void Environment::set_ssgi_max_steps(int p_steps) {
+	ssgi_max_steps = p_steps;
+	_update_ssgi();
+}
+
+int Environment::get_ssgi_max_steps() const {
+	return ssgi_max_steps;
+}
+
+void Environment::set_ssgi_depth_tolerance(float p_depth_tolerance) {
+	ssgi_depth_tolerance = p_depth_tolerance;
+	_update_ssgi();
+}
+
+float Environment::get_ssgi_depth_tolerance() const {
+	return ssgi_depth_tolerance;
+}
+
+void Environment::set_ssgi_intensity(float p_intensity) {
+	ssgi_intensity = p_intensity;
+	_update_ssgi();
+}
+
+float Environment::get_ssgi_intensity() const {
+	return ssgi_intensity;
+}
+
+void Environment::_update_ssgi() {
+	RS::get_singleton()->environment_set_ssgi(
+			environment,
+			ssgi_enabled,
+			ssgi_max_steps,
+			ssgi_depth_tolerance,
+			ssgi_intensity);
+}
+
 // SDFGI
 
 void Environment::set_sdfgi_enabled(bool p_enabled) {
@@ -1359,6 +1406,22 @@ void Environment::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ssil_intensity", PROPERTY_HINT_RANGE, "0,16,0.01,or_greater"), "set_ssil_intensity", "get_ssil_intensity");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ssil_sharpness", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_ssil_sharpness", "get_ssil_sharpness");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ssil_normal_rejection", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_ssil_normal_rejection", "get_ssil_normal_rejection");
+
+	// SSGI
+	ClassDB::bind_method(D_METHOD("set_ssgi_enabled", "enabled"), &Environment::set_ssgi_enabled);
+	ClassDB::bind_method(D_METHOD("is_ssgi_enabled"), &Environment::is_ssgi_enabled);
+	ClassDB::bind_method(D_METHOD("set_ssgi_max_steps", "steps"), &Environment::set_ssgi_max_steps);
+	ClassDB::bind_method(D_METHOD("get_ssgi_max_steps"), &Environment::get_ssgi_max_steps);
+	ClassDB::bind_method(D_METHOD("set_ssgi_depth_tolerance", "tolerance"), &Environment::set_ssgi_depth_tolerance);
+	ClassDB::bind_method(D_METHOD("get_ssgi_depth_tolerance"), &Environment::get_ssgi_depth_tolerance);
+	ClassDB::bind_method(D_METHOD("set_ssgi_intensity", "intensity"), &Environment::set_ssgi_intensity);
+	ClassDB::bind_method(D_METHOD("get_ssgi_intensity"), &Environment::get_ssgi_intensity);
+
+	ADD_GROUP("SSGI", "ssgi_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "ssgi_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_ssgi_enabled", "is_ssgi_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "ssgi_max_steps", PROPERTY_HINT_RANGE, "16,512,1"), "set_ssgi_max_steps", "get_ssgi_max_steps");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ssgi_depth_tolerance", PROPERTY_HINT_RANGE, "0.01,64,0.1"), "set_ssgi_depth_tolerance", "get_ssgi_depth_tolerance");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ssgi_intensity", PROPERTY_HINT_RANGE, "0,16,0.01,or_greater"), "set_ssgi_intensity", "get_ssgi_intensity");
 
 	// SDFGI
 
