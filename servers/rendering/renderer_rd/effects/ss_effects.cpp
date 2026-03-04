@@ -1966,7 +1966,6 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			push_constant.intensity = p_settings.intensity;
 			push_constant.depth_tolerance = p_settings.depth_tolerance;
 			push_constant.num_steps = p_settings.max_steps;
-			push_constant.orthogonal = p_projections[v].is_orthogonal();
 			push_constant.view_index = v;
 			push_constant.frame_count = RSG::rasterizer->get_frame_number();
 

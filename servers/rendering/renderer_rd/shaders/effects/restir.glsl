@@ -50,6 +50,10 @@ vec3 reprojection(vec2 uv, float depth) {
 	return vec3((previous_pos_ndc.xy / previous_pos_ndc.w) * 0.5f + 0.5f, previous_pos_ndc.z / previous_pos_ndc.w);
 }
 
+vec3 load_normal(ivec2 pixel_pos) {
+	return normalize(imageLoad(source_normal_roughness, pixel_pos).xyz * 2.0 - 1.0);
+}
+
 vec3 view_to_world_pos(vec3 pos) {
 	return (scene_data.inv_view_matrix * vec4(pos, 1.0)).xyz;
 }
@@ -153,13 +157,13 @@ void temporal_resampling(const ivec2 pixel_pos) {
 
 	Reservoir reservoir = reservoirs.data[reservoir_index(reservoir_coord, ivec2(restir_setting.reservoir_size))];
 
-	vec3 world_position = screen_to_world_pos(vec3(screen_uv, screen_depth)) + scene_data.eye_offset.xyz;
+	vec3 world_position = screen_to_world_pos(vec3(screen_uv, screen_depth));
 	uint noise_seed = random_seed(ivec3(pixel_pos, params.frame_count));
 
 	const vec3 uv_history = reprojection(screen_uv, screen_depth);
 	const bool b_history_was_on_screen = all(lessThanEqual(uv_history, vec3(1.0f))) && all(greaterThanEqual(uv_history, vec3(0.0f)));
 
-	vec3 view_normal = imageLoad(source_normal_roughness, reservoir_coord).xyz;
+	vec3 view_normal = load_normal(reservoir_coord);
 
 	if (b_history_was_on_screen) {
 		ivec2 reservoir_coord_history = ivec2(uv_history.xy * restir_setting.reservoir_size);
@@ -175,8 +179,7 @@ void temporal_resampling(const ivec2 pixel_pos) {
 
 			prev_reservoir.sample_count = min(prev_reservoir.sample_count, 20u);
 
-			vec3 history_sample_translated_world_position = screen_to_world_pos(vec3(uv_history.xy, prev_scene_depth));
-			vec3 history_sample_world_position = history_sample_translated_world_position + scene_data.eye_offset.xyz;
+			vec3 history_sample_world_position = screen_to_world_pos(vec3(uv_history.xy, prev_scene_depth));
 
 			// @todo - causes fireflies
 			float jacobian = calculate_jacobian(world_position, history_sample_world_position, prev_reservoir.hsample);
@@ -202,10 +205,10 @@ void spatial_resampling(const ivec2 pixel_pos) {
 	}
 	Reservoir reservoir = temporal_reservoirs.data[reservoir_index(reservoir_coord, ivec2(restir_setting.reservoir_size))];
 
-	vec3 world_position = screen_to_world_pos(vec3(screen_uv, screen_depth)) + scene_data.eye_offset.xyz;
+	vec3 world_position = screen_to_world_pos(vec3(screen_uv, screen_depth));
 	uint noise_seed = random_seed(ivec3(pixel_pos, params.frame_count));
 
-	vec3 view_normal = imageLoad(source_normal_roughness, reservoir_coord).xyz;
+	vec3 view_normal = load_normal(reservoir_coord);
 	vec3 world_normal = view_to_world_normal(view_normal);
 
 	float noise = random_float(noise_seed);
@@ -227,8 +230,8 @@ void spatial_resampling(const ivec2 pixel_pos) {
 			uvec2 sample_screen_coord = neighbor_reservoir_coord;
 			vec2 sample_screen_uv = (sample_screen_coord + 0.5f) / params.screen_size;
 			float sample_scene_depth = neighbor_scene_depth;
-			vec3 sample_world_position = screen_to_world_pos(vec3(sample_screen_uv, sample_scene_depth)) + scene_data.eye_offset.xyz;
-			vec3 neighbor_world_normal = view_to_world_normal(imageLoad(source_normal_roughness, neighbor_reservoir_coord).xyz);
+			vec3 sample_world_position = screen_to_world_pos(vec3(sample_screen_uv, sample_scene_depth));
+			vec3 neighbor_world_normal = view_to_world_normal(load_normal(neighbor_reservoir_coord));
 
 			float depth_error = abs(max(0.3f, view_normal.z) * (screen_depth / neighbor_scene_depth - 1.0));
 			float normal_dot = dot(world_normal, neighbor_world_normal);
@@ -253,7 +256,7 @@ void spatial_resampling(const ivec2 pixel_pos) {
 				// }
 
 				if (b_neighbor_hit_visible) {
-					merge_reservoirs(reservoir, neighbor_reservoir, 1.0f, swap_noise);
+					merge_reservoirs(reservoir, neighbor_reservoir, jacobian, swap_noise);
 				}
 			}
 		}
@@ -272,8 +275,8 @@ void integrate_and_upsample(const ivec2 pixel_pos) {
 		return;
 	}
 
-	vec3 world_position = screen_to_world_pos(vec3(screen_uv, imageLoad(source_depth, screen_coord).x)) + scene_data.eye_offset.xyz;
-	vec3 view_normal = imageLoad(source_normal_roughness, screen_coord).xyz;
+	vec3 world_position = screen_to_world_pos(vec3(screen_uv, imageLoad(source_depth, screen_coord).x));
+	vec3 view_normal = load_normal(screen_coord);
 	vec3 world_normal = view_to_world_normal(view_normal);
 	vec4 scene_plane = vec4(world_normal, dot(world_position, world_normal));
 	const vec3 V = normalize(-world_position);
@@ -355,67 +358,9 @@ void integrate_and_upsample(const ivec2 pixel_pos) {
 	specular_lighting = inverse_tonemap_lighting_for_rough_specular(specular_lighting);
 	float resolve_variance = total_weight > 0.0f ? s / total_weight : 0.0f;
 
-#elif defined(SPIRAL_PATTERN_UPSAMPLE)
-
-	float kernel_scale = upsample_kernel_size * reservoir_downsample_factor * (4.0f / float(upsample_num_samples));
-	float noise = blue_noise_scalar(screen_coord, scene_data.frame_count);
-
-	vec3 weighted_diffuse_lighting = vec3(0.0f);
-	vec3 weighted_specular_lighting = vec3(0.0f);
-	float total_weight = 0.0f;
-	float mean = 0.0f;
-	float s = 0.0f;
-
-	for (uint sample_index = 0; sample_index < upsample_num_samples; sample_index++) {
-		const float golden_angle = 2.3999632f;
-		const float angle = (sample_index + noise) * golden_angle;
-		const float radius = pow(float(sample_index), 0.666f) * kernel_scale;
-		const ivec2 reservoir_pixel_offset = ivec2(floor(vec2(cos(angle), sin(angle)) * radius));
-		ivec2 sample_reservoir_coord = clamp(ivec2(screen_coord) / reservoir_downsample_factor + reservoir_pixel_offset, ivec2(0), ivec2(reservoir_view_size) - 1);
-		float sample_scene_depth = downsampled_scene_depth[sample_reservoir_coord];
-
-		if (sample_scene_depth > 0.0f) {
-			Reservoir sample_reservoir = reservoirs.data[reservoir_index(sample_reservoir_coord, ivec2(restir_setting.reservoir_size))];
-
-			ivec2 sample_screen_coord = get_screen_coord_from_reservoir_coord(sample_reservoir_coord);
-			vec2 sample_screen_uv = (vec2(sample_screen_coord) + vec2(scene_data.view_rect_min_size.xy) + 0.5f) * scene_data.buffer_size_inv.zw;
-
-			vec3 sample_translated_world_position = get_translated_world_position_from_screen_uv(sample_screen_uv, sample_scene_depth);
-
-			float plane_distance = abs(dot(vec4(sample_translated_world_position, -1.0f), scene_plane));
-			float relative_depth_difference = plane_distance / material.scene_depth;
-			float depth_weight = exp2(-100000.0f * (relative_depth_difference * relative_depth_difference));
-			float weight = depth_weight;
-
-			vec3 sample_lighting = sample_reservoir.hsample.out_radiance * sample_reservoir.weight;
-			vec3 weighted_lighting = sample_lighting * weight;
-			weighted_diffuse_lighting += weighted_lighting * max(dot(material.world_normal, sample_reservoir.hsample.ray_direction), 0.0f);
-
-			vec3 H = normalize(V + sample_reservoir.hsample.ray_direction);
-			float NoH = clamp(dot(material.world_normal, H), 0.0f, 1.0f);
-			float D = d_ggx(pow4(material.roughness), NoH);
-			float Vis = vis_implicit();
-
-			weighted_specular_lighting += tonemap_lighting_for_rough_specular(sample_lighting * (D * Vis)) * weight;
-			total_weight += weight;
-
-#if USE_BILATERAL_FILTER
-			// https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm
-			float luma_sample_radiance = luminance(sample_lighting);
-			float old_mean = mean;
-			mean += weight / total_weight * (luma_sample_radiance - old_mean);
-			s += weight * (luma_sample_radiance - old_mean) * (luma_sample_radiance - mean);
-#endif
-		}
-	}
-
-	vec3 diffuse_lighting = total_weight > 0.0f ? weighted_diffuse_lighting / total_weight : vec3(0.0f);
-	vec3 specular_lighting = total_weight > 0.0f ? inverse_tonemap_lighting_for_rough_specular(weighted_specular_lighting / total_weight) : vec3(0.0f);
-	float resolve_variance = total_weight > 0.0f ? s / total_weight : 0.0f;
 #else
 	ivec2 reservoir_coord = ivec2(screen_coord) * (restir_setting.reservoir_size / params.screen_size);
 	reservoir_coord = min(reservoir_coord, restir_setting.reservoir_size - 1);
-	// ivec2 reservoir_coord = screen_coord;
 	Reservoir reservoir = reservoirs.data[reservoir_index(reservoir_coord, ivec2(restir_setting.reservoir_size))];
 
 	vec3 diffuse_lighting = vec3(0.0f);

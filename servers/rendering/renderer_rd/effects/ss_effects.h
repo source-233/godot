@@ -560,7 +560,6 @@ private:
 		int32_t num_steps;
 		float depth_tolerance;
 		float intensity;
-		int32_t orthogonal;
 		uint32_t view_index;
 		float frame_count;
 	};

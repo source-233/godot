@@ -28,7 +28,6 @@ layout(push_constant, std430) uniform Params {
 	int num_steps;
 	float depth_tolerance;
 	float intensity;
-	bool orthogonal;
 	int view_index;
 	float frame_count;
 }
@@ -129,34 +128,17 @@ const float PI = 3.14159265f;
 
 // http://www.realtimerendering.com/raytracinggems/unofficial_RayTracingGems_v1.4.pdf (chapter 15)
 vec4 generate_hemisphere_cosine_weighted_direction(inout uint noise) {
-	float phi = 2.0 * PI * random_float(noise);
-	float cos_theta = sqrt(random_float(noise));
-	float sin_theta = sqrt( 1 - cos_theta * cos_theta );
+	float noise1 = random_float(noise);
+	float noise2 = random_float(noise) * 2.0 * PI;
 
 	vec3 h;
-	h.x = sin_theta * cos(phi);
-	h.y = sin_theta * sin(phi);
-	h.z = cos_theta;
+	h.x = sqrt(noise1) * cos(noise2);
+	h.y = sqrt(noise1) * sin(noise2);
+	h.z = sqrt(1.0 - noise1);
 
-	float pdf = cos_theta * (1.0 / PI);
+	float pdf = h.z * (1.0 / PI);
 
 	return vec4(h, pdf);
-}
-
-vec4 uniform_sample_hemisphere( inout uint noise )
-{
-	float phi = 2.0 * PI * random_float(noise);
-	float cos_theta = random_float(noise);
-	float sin_theta = sqrt( 1 - cos_theta * cos_theta );
-
-	vec3 h;
-	h.x = sin_theta * cos( phi );
-	h.y = sin_theta * sin( phi );
-	h.z = cos_theta;
-
-	float pdf = 1.0 / (2 * PI);
-
-	return vec4( h, pdf );
 }
 
 vec4 generate_ray_dir_from_normal(vec3 normal, inout uint noise) {
@@ -204,7 +186,6 @@ void main() {
 		pos += geom_normal * (1.0 - pow(clamp(dot(normal, geom_normal), 0.0, 1.0), 8.0));
 		screen_pos = view_to_screen_pos(pos);
 
-		vec3 view_dir = params.orthogonal ? vec3(0.0, 0.0, -1.0) : normalize(pos + scene_data.eye_offset[params.view_index].xyz);
 		uint noise_seed = random_seed(ivec3(pixel_pos, params.frame_count));
 		vec4 ray_dir = generate_ray_dir_from_normal(normal, noise_seed);
 
@@ -332,7 +313,7 @@ void main() {
 		hit_sample.distance = length(cur_pos - pos);
 		hit_sample.hit_normal = view_to_world_normal(hit_normal);
 		hit_sample.out_radiance = color.rgb;
-		hit_sample.pdf = luminance(color.rgb);
+		hit_sample.pdf = luminance(color.rgb) * validity;
 		hit_sample.validity = validity;
 
 		Reservoir reservoir = new_reservoir();
