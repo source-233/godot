@@ -324,6 +324,8 @@ void main() {
 		}
 
 		reservoirs.data[reservoir_index(pixel_pos.xy, params.screen_size)] = reservoir;
+
+		color = vec4(view_to_world_normal(ray_dir.xyz), 1.0);
 	} else {
 		Reservoir reservoir = new_reservoir();
 		reservoirs.data[reservoir_index(pixel_pos.xy, params.screen_size)] = reservoir;

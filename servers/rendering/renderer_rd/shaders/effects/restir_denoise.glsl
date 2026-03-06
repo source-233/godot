@@ -19,22 +19,23 @@ layout(set = 0, binding = 0, std140) uniform SceneData {
 } scene_data;
 
 layout(r32f, set = 0, binding = 1) uniform restrict readonly image2D source_depth;
-layout(rgba8, set = 0, binding = 2) uniform restrict readonly image2D source_normal_roughness;
+layout(r32f, set = 0, binding = 2) uniform restrict readonly image2D history_depth;
+layout(rgba8, set = 0, binding = 3) uniform restrict readonly image2D source_normal_roughness;
 
-layout(rgba16f, set = 0, binding = 3) uniform restrict readonly image2D source_diffuse_indirect;
-layout(rgba16f, set = 0, binding = 4) uniform restrict readonly image2D source_rough_specular_indirect;
-layout(r32f, set = 0, binding = 5) uniform restrict readonly image2D source_resolve_variance;
+layout(rgba16f, set = 0, binding = 4) uniform restrict readonly image2D source_diffuse_indirect;
+layout(rgba16f, set = 0, binding = 5) uniform restrict readonly image2D history_diffuse_indirect;
+layout(rgba16f, set = 0, binding = 6) uniform restrict writeonly image2D out_diffuse_indirect;
 
-layout(rgba16f, set = 0, binding = 6) uniform restrict readonly image2D history_diffuse_indirect;
-layout(rgba16f, set = 0, binding = 7) uniform restrict readonly image2D history_rough_specular_indirect;
-layout(r32f, set = 0, binding = 8) uniform restrict readonly image2D history_resolve_variance;
-layout(r32f, set = 0, binding = 9) uniform restrict readonly image2D history_depth;
-layout(r32f, set = 0, binding = 10) uniform restrict readonly image2D history_num_frames_accumulated;
+layout(rgba16f, set = 0, binding = 7) uniform restrict readonly image2D source_rough_specular_indirect;
+layout(rgba16f, set = 0, binding = 8) uniform restrict readonly image2D history_rough_specular_indirect;
+layout(rgba16f, set = 0, binding = 9) uniform restrict writeonly image2D out_rough_specular_indirect;
 
-layout(rgba16f, set = 0, binding = 11) uniform restrict writeonly image2D out_diffuse_indirect;
-layout(rgba16f, set = 0, binding = 12) uniform restrict writeonly image2D out_rough_specular_indirect;
-layout(r32f, set = 0, binding = 13) uniform restrict writeonly image2D out_num_frames_accumulated;
-layout(r32f, set = 0, binding = 14) uniform restrict writeonly image2D out_resolve_variance;
+layout(r32f, set = 0, binding = 10) uniform restrict readonly image2D source_resolve_variance;
+layout(r32f, set = 0, binding = 11) uniform restrict readonly image2D history_resolve_variance;
+layout(r32f, set = 0, binding = 12) uniform restrict writeonly image2D out_resolve_variance;
+
+layout(r32f, set = 0, binding = 13) uniform restrict readonly image2D history_num_frames_accumulated;
+layout(r32f, set = 0, binding = 14) uniform restrict writeonly image2D out_num_frames_accumulated;
 
 
 layout(push_constant, std430) uniform Params {

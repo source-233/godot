@@ -2015,11 +2015,15 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			ReSTIR::ReSTIRResource restir_resource;
 			restir_resource.normal_roughness_texture = p_normal_roughness_slices[v];
 			restir_resource.depth_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0);
-			restir_resource.history_depth_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0);
+			restir_resource.history_depth_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY, v, 0);
 			restir_resource.result_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_FINAL, v, 0);
 			restir_resource.history_result_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY, v, 0);
 
 			ssgi.restir[v].process(p_render_buffers, restir_resource, scene_data);
+
+			RID ssgi_final = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0);
+			RID ssgi_history = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY, v, 0);
+			p_copy_effects.copy_to_rect(ssgi_final, ssgi_history, Rect2(0, 0, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height));
 		}
 	}
 
@@ -2067,6 +2071,7 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 
 	// 	RD::get_singleton()->draw_command_end_label();
 	// }
+
 }
 
 /* Subsurface scattering */

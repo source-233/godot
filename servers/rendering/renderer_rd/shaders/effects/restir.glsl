@@ -148,7 +148,7 @@ float calculate_jacobian(vec3 receiver_position, vec3 neighbor_receiver_position
 #ifdef RESTIR_PIPELINE_TEMPORAL_REUSE
 void temporal_resampling(const ivec2 pixel_pos) {
 	ivec2 reservoir_coord = pixel_pos;
-	vec2 screen_uv = (vec2(pixel_pos) + 0.5f) / restir_setting.reservoir_size;
+	vec2 screen_uv = (vec2(pixel_pos) + 0.5f) / vec2(restir_setting.reservoir_size);
 	const float screen_depth = imageLoad(source_depth, reservoir_coord).x;
 
 	if (any(greaterThanEqual(reservoir_coord, restir_setting.reservoir_size)) || screen_depth <= 0.0f) {
@@ -282,7 +282,7 @@ void integrate_and_upsample(const ivec2 pixel_pos) {
 	const vec3 V = normalize(-world_position);
 	const float NoV = clamp(dot(world_normal, V), 0.0f, 1.0f);
 
-#if defined(JITTERED_BILINEAR_UPSAMPLE)
+#ifdef JITTERED_BILINEAR_UPSAMPLE
 
 	vec2 noise_offset = vec2(0.0f);
 
@@ -343,7 +343,7 @@ void integrate_and_upsample(const ivec2 pixel_pos) {
 
 			specular_lighting += tonemap_lighting_for_rough_specular(sample_lighting * (D * Vis)) * weight;
 
-#if USE_BILATERAL_FILTER
+#ifdef USE_BILATERAL_FILTER
 			// https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Weighted_incremental_algorithm
 			float weight = screen_probe_sample.weights[sample_index];
 			total_weight += weight;
