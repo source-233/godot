@@ -34,6 +34,7 @@
 #include "core/templates/rid.h"
 #include "servers/rendering/renderer_rd/pipeline_deferred_rd.h"
 #include "servers/rendering/renderer_rd/shaders/effects/restir.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/effects/restir_denoise.glsl.gen.h"
 #include "servers/rendering/renderer_rd/storage_rd/render_scene_buffers_rd.h"
 
 class ReSTIR {
@@ -43,6 +44,15 @@ public:
 
 	void allocate_buffers(Size2i size);
 	void free_buffers();
+
+	struct SceneData {
+		float projection[16];
+		float inv_projection[16];
+		float reprojection[16];
+		float eye_offset[4];
+		float inv_view_matrix[16];
+		float view_matrix[16];
+	};
 
 	struct ReSTIRSetting {
 		int32_t reservoir_size[2] = { 0, 0 };
@@ -59,26 +69,40 @@ public:
 		int32_t pad[3];
 	};
 	void set_setting(ReSTIRSetting &setting);
-	RID init_uniform_set(RID shader, uint32_t set_num);
+	RID init_restir_uniform_set(RID shader, uint32_t set_num);
 
-	struct SceneData {
-		float projection[16];
-		float inv_projection[16];
-		float reprojection[16];
-		float eye_offset[4];
-		float inv_view_matrix[16];
-		float view_matrix[16];
-	};
 	struct ReSTIRResource {
 		RID normal_roughness_texture;
 		RID depth_texture;
 		RID history_depth_texture;
-		RID result_texture;
-		RID history_result_texture;
+		RID diffuse_texture;
+		RID history_diffuse_texture;
 	};
 	void process(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRResource &p_restir_resource, const SceneData &p_scene_data);
 
-	void debug(const RID &debug_radiance, const RID &debug_hit_normal, const RID &debug_weight);
+	struct ReSTIRDenoiserSetting {
+		float max_frames_accumulated = 16.0f;
+		float history_distance_threshold = 0.5f;
+		float bilateral_filter_spatial_kernel_radius = 0.005f;
+		uint32_t bilateral_filter_num_samples = 16u;
+		float bilateral_filter_depth_weight_scale = 10.0f;
+		float bilateral_filter_normal_angle_threshold_scale = 0.5f;
+		float bilateral_filter_strong_blur_variance_threshold = 0.05f;
+		float disocclusion_variance = 0.1f;
+	} denoiser_setting;
+	void set_denoiser_setting(ReSTIRDenoiserSetting &setting);
+
+	struct ReSTIRDenoiserResource {
+		RID normal_roughness_texture;
+		RID depth_texture;
+		RID history_depth_texture;
+		RID history_num_frames_accumulated_texture;
+		RID out_num_frames_accumulated_texture;
+		RID diffuse_texture;
+		RID history_diffuse_texture;
+		RID out_diffuse_texture;
+	};
+	void process_denoise(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRDenoiserResource &p_denoiser_resource, const SceneData &p_scene_data);
 
 private:
 	struct HitSample {
@@ -87,15 +111,15 @@ private:
 		float hit_normal[3];
 		float pdf;
 		float out_radiance[3];
-		float pad;
+		float validate;
 	};
 
 	struct Reservoir {
 		HitSample hsample;
 
-		float weight_sum; // Processed weight sum
-		float weight; // Weight of the current sample, which is the reciprocal of the PDF of the importance sampling
-		uint32_t sample_count; // Processed sample count
+		float weight_sum;
+		float weight;
+		uint32_t sample_count;
 		float pad;
 	};
 
@@ -127,9 +151,26 @@ private:
 	RID reservoirs;
 	RID temporal_reservoirs;
 
-	enum DenoisePipeline {
-		DENOISE_TEMPORAL_ACCUMULATION = 0,
-		DENOISE_BILATERAL_FILTER = 1,
-		DENOISE_MAX = 2,
+	enum DenoiserPipeline {
+		DENOISER_PIPELINE_TEMPORAL_ACCUMULATION = 0,
+		DENOISER_PIPELINE_BILATERAL_FILTER = 1,
+		DENOISER_PIPELINE_MAX = 2,
 	};
+
+	struct DenoiserPushConstant {
+		int32_t screen_size[2];
+		uint32_t frame_count;
+		float max_frames_accumulated;
+		float history_distance_threshold;
+		float bilateral_filter_spatial_kernel_radius;
+		uint32_t bilateral_filter_num_samples;
+		float bilateral_filter_depth_weight_scale;
+		float bilateral_filter_normal_angle_threshold_scale;
+		float bilateral_filter_strong_blur_variance_threshold;
+		float disocclusion_variance;
+	};
+
+	RestirDenoiseShaderRD denoiser_shader;
+	RID denoiser_shader_version;
+	PipelineDeferredRD denoiser_pipelines[DENOISER_PIPELINE_MAX];
 };

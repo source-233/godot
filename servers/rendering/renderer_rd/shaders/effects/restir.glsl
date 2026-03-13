@@ -59,9 +59,7 @@ vec3 view_to_world_pos(vec3 pos) {
 }
 
 vec3 view_to_world_normal(vec3 normal) {
-    mat3 inv_view_matrix_basis = mat3(scene_data.inv_view_matrix);
-    vec3 world_normal = normalize(inv_view_matrix_basis * normal);
-    return world_normal;
+    return normalize(mat3(scene_data.inv_view_matrix) * normal);;
 }
 
 vec3 world_to_view_pos(vec3 pos) {
@@ -163,9 +161,9 @@ void temporal_resampling(const ivec2 pixel_pos) {
 	const vec3 uv_history = reprojection(screen_uv, screen_depth);
 	const bool b_history_was_on_screen = all(lessThanEqual(uv_history, vec3(1.0f))) && all(greaterThanEqual(uv_history, vec3(0.0f)));
 
-	vec3 view_normal = load_normal(reservoir_coord);
-
 	if (b_history_was_on_screen) {
+		vec3 view_normal = load_normal(reservoir_coord);
+
 		ivec2 reservoir_coord_history = ivec2(uv_history.xy * restir_setting.reservoir_size);
 		ivec2 screen_coord_history = reservoir_coord_history.xy * (params.screen_size / restir_setting.reservoir_size);
 

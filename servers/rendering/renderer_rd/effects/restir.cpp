@@ -50,6 +50,16 @@ ReSTIR::ReSTIR() {
 	for (int i = 0; i < RESTIR_PIPELINE_MAX; i++) {
 		restir_pipelines[i].create_compute_pipeline(restir_shader.version_get_shader(restir_shader_version, i));
 	}
+
+	Vector<String> denoiser_modes;
+	denoiser_modes.push_back("\n#define DENOISER_PIPELINE_TEMPORAL_ACCUMULATION\n");
+	denoiser_modes.push_back("\n#define DENOISER_PIPELINE_BILATERAL_FILTER\n");
+	denoiser_shader.initialize(denoiser_modes, defines);
+	denoiser_shader_version = denoiser_shader.version_create();
+
+	for (int i = 0; i < DENOISER_PIPELINE_MAX; i++) {
+		denoiser_pipelines[i].create_compute_pipeline(denoiser_shader.version_get_shader(denoiser_shader_version, i));
+	}
 }
 
 ReSTIR::~ReSTIR() {
@@ -66,6 +76,11 @@ ReSTIR::~ReSTIR() {
 	if (scene_data_ubo.is_valid()) {
 		RD::get_singleton()->free_rid(scene_data_ubo);
 	}
+
+	for (int i = 0; i < DENOISER_PIPELINE_MAX; i++) {
+		denoiser_pipelines[i].free();
+	}
+	denoiser_shader.version_free(denoiser_shader_version);
 }
 
 void ReSTIR::allocate_buffers(Size2i size) {
@@ -90,7 +105,7 @@ void ReSTIR::allocate_buffers(Size2i size) {
 	int32_t mode = RESTIR_PIPELINE_TEMPORAL_CLEAR;
 	RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, restir_pipelines[mode].get_rid());
 
-	RID uniform_set = init_uniform_set(restir_shader.version_get_shader(restir_shader_version, mode), RESTIR_UNIFORM_SET);
+	RID uniform_set = init_restir_uniform_set(restir_shader.version_get_shader(restir_shader_version, mode), RESTIR_UNIFORM_SET);
 	RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set, RESTIR_UNIFORM_SET);
 	RD::get_singleton()->compute_list_dispatch_threads(compute_list, size.width, size.height, 1);
 	RD::get_singleton()->compute_list_end();
@@ -116,7 +131,7 @@ void ReSTIR::set_setting(ReSTIRSetting &setting) {
 	RD::get_singleton()->buffer_update(restir_setting_ubo, 0, sizeof(ReSTIRSetting), &setting);
 }
 
-RID ReSTIR::init_uniform_set(RID shader, uint32_t set_num) {
+RID ReSTIR::init_restir_uniform_set(RID shader, uint32_t set_num) {
 	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
 	ERR_FAIL_NULL_V(uniform_set_cache, RID());
 	
@@ -162,7 +177,7 @@ void ReSTIR::process(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRRes
 		RD::Uniform u_normal_roughness(RD::UNIFORM_TYPE_IMAGE, 2, p_restir_resource.normal_roughness_texture);
 		RD::Uniform u_history_depth(RD::UNIFORM_TYPE_IMAGE, 3, p_restir_resource.history_depth_texture);
 
-		RID uniform_set = init_uniform_set(restir_shader.version_get_shader(restir_shader_version, mode), RESTIR_UNIFORM_SET);
+		RID uniform_set = init_restir_uniform_set(restir_shader.version_get_shader(restir_shader_version, mode), RESTIR_UNIFORM_SET);
 
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(shader, 0, u_scene_data, u_depth, u_normal_roughness, u_history_depth), 0);
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set, RESTIR_UNIFORM_SET);
@@ -193,7 +208,7 @@ void ReSTIR::process(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRRes
 		RD::Uniform u_depth(RD::UNIFORM_TYPE_IMAGE, 1, p_restir_resource.depth_texture);
 		RD::Uniform u_normal_roughness(RD::UNIFORM_TYPE_IMAGE, 2, p_restir_resource.normal_roughness_texture);
 
-		RID uniform_set = init_uniform_set(restir_shader.version_get_shader(restir_shader_version, mode), RESTIR_UNIFORM_SET);
+		RID uniform_set = init_restir_uniform_set(restir_shader.version_get_shader(restir_shader_version, mode), RESTIR_UNIFORM_SET);
 
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(shader, 0, u_scene_data, u_depth, u_normal_roughness), 0);
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set, RESTIR_UNIFORM_SET);
@@ -222,9 +237,9 @@ void ReSTIR::process(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRRes
 		RD::Uniform u_scene_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 0, scene_data_ubo);
 		RD::Uniform u_depth(RD::UNIFORM_TYPE_IMAGE, 1, p_restir_resource.depth_texture);
 		RD::Uniform u_normal_roughness(RD::UNIFORM_TYPE_IMAGE, 2, p_restir_resource.normal_roughness_texture);
-		RD::Uniform u_out_diffuse(RD::UNIFORM_TYPE_IMAGE, 3, p_restir_resource.result_texture);
+		RD::Uniform u_out_diffuse(RD::UNIFORM_TYPE_IMAGE, 3, p_restir_resource.diffuse_texture);
 
-		RID uniform_set = init_uniform_set(restir_shader.version_get_shader(restir_shader_version, mode), RESTIR_UNIFORM_SET);
+		RID uniform_set = init_restir_uniform_set(restir_shader.version_get_shader(restir_shader_version, mode), RESTIR_UNIFORM_SET);
 
 		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, restir_pipelines[mode].get_rid());
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(shader, 0, u_scene_data, u_depth, u_normal_roughness, u_out_diffuse), 0);
@@ -238,3 +253,109 @@ void ReSTIR::process(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRRes
 	}
 }
 
+void ReSTIR::set_denoiser_setting(ReSTIRDenoiserSetting &setting) {
+	denoiser_setting = setting;
+}
+
+void ReSTIR::process_denoise(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRDenoiserResource &p_denoiser_resource, const SceneData &p_scene_data) {
+	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
+	ERR_FAIL_NULL(uniform_set_cache);
+	MaterialStorage *material_storage = MaterialStorage::get_singleton();
+	ERR_FAIL_NULL(material_storage);
+
+	Vector2i internal_size = p_render_buffers->get_internal_size();
+
+	{
+		if (scene_data_ubo.is_null()) {
+			scene_data_ubo = RD::get_singleton()->uniform_buffer_create(sizeof(SceneData));
+		} 
+
+		RD::get_singleton()->buffer_update(scene_data_ubo, 0, sizeof(SceneData), &p_scene_data);
+	}
+
+	{
+		RD::get_singleton()->draw_command_begin_label("Denoise Temporal Accumulation");
+
+		RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
+
+		int32_t mode = DENOISER_PIPELINE_TEMPORAL_ACCUMULATION;
+		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, denoiser_pipelines[mode].get_rid());
+
+		DenoiserPushConstant push_constant{};
+		push_constant.screen_size[0] = MAX(1, internal_size.width);
+		push_constant.screen_size[1] = MAX(1, internal_size.height);
+		push_constant.frame_count = RSG::rasterizer->get_frame_number();
+		push_constant.max_frames_accumulated = denoiser_setting.max_frames_accumulated;
+		push_constant.history_distance_threshold = denoiser_setting.history_distance_threshold;
+		push_constant.bilateral_filter_spatial_kernel_radius = denoiser_setting.bilateral_filter_spatial_kernel_radius;
+		push_constant.bilateral_filter_num_samples = denoiser_setting.bilateral_filter_num_samples;
+		push_constant.bilateral_filter_depth_weight_scale = denoiser_setting.bilateral_filter_depth_weight_scale;
+		push_constant.bilateral_filter_normal_angle_threshold_scale = denoiser_setting.bilateral_filter_normal_angle_threshold_scale;
+		push_constant.bilateral_filter_strong_blur_variance_threshold = denoiser_setting.bilateral_filter_strong_blur_variance_threshold;
+		push_constant.disocclusion_variance = denoiser_setting.disocclusion_variance;
+
+		RID shader = denoiser_shader.version_get_shader(denoiser_shader_version, mode);
+
+		RD::Uniform u_scene_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 0, scene_data_ubo);
+		RD::Uniform u_depth(RD::UNIFORM_TYPE_IMAGE, 1, p_denoiser_resource.depth_texture);
+		RD::Uniform u_history_depth(RD::UNIFORM_TYPE_IMAGE, 2, p_denoiser_resource.history_depth_texture);
+		RD::Uniform u_normal_roughness(RD::UNIFORM_TYPE_IMAGE, 3, p_denoiser_resource.normal_roughness_texture);
+		RD::Uniform u_history_num_frames_accumulated(RD::UNIFORM_TYPE_IMAGE, 4, p_denoiser_resource.history_num_frames_accumulated_texture);
+		RD::Uniform u_out_num_frames_accumulated(RD::UNIFORM_TYPE_IMAGE, 5, p_denoiser_resource.out_num_frames_accumulated_texture);
+		RD::Uniform u_diffuse_indirect(RD::UNIFORM_TYPE_IMAGE, 6, p_denoiser_resource.out_diffuse_texture);
+		RD::Uniform u_history_diffuse_indirect(RD::UNIFORM_TYPE_IMAGE, 7, p_denoiser_resource.history_diffuse_texture);
+		RD::Uniform u_out_diffuse_indirect(RD::UNIFORM_TYPE_IMAGE, 8, p_denoiser_resource.diffuse_texture);
+
+		RID uniform_set = uniform_set_cache->get_cache(shader, 0, u_scene_data, u_depth, u_history_depth, u_normal_roughness, u_history_num_frames_accumulated, u_out_num_frames_accumulated, u_diffuse_indirect, u_history_diffuse_indirect, u_out_diffuse_indirect);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set, 0);
+		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
+		RD::get_singleton()->compute_list_dispatch_threads(compute_list, push_constant.screen_size[0], push_constant.screen_size[1], 1);
+
+		RD::get_singleton()->compute_list_end();
+
+		RD::get_singleton()->draw_command_end_label();
+	}
+
+	{
+		RD::get_singleton()->draw_command_begin_label("Denoise Bilateral Filter");
+
+		RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
+
+		int32_t mode = DENOISER_PIPELINE_BILATERAL_FILTER;
+		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, denoiser_pipelines[mode].get_rid());
+
+		DenoiserPushConstant push_constant{};
+		push_constant.screen_size[0] = MAX(1, internal_size.width);
+		push_constant.screen_size[1] = MAX(1, internal_size.height);
+		push_constant.frame_count = RSG::rasterizer->get_frame_number();
+		push_constant.max_frames_accumulated = denoiser_setting.max_frames_accumulated;
+		push_constant.history_distance_threshold = denoiser_setting.history_distance_threshold;
+		push_constant.bilateral_filter_spatial_kernel_radius = denoiser_setting.bilateral_filter_spatial_kernel_radius;
+		push_constant.bilateral_filter_num_samples = denoiser_setting.bilateral_filter_num_samples;
+		push_constant.bilateral_filter_depth_weight_scale = denoiser_setting.bilateral_filter_depth_weight_scale;
+		push_constant.bilateral_filter_normal_angle_threshold_scale = denoiser_setting.bilateral_filter_normal_angle_threshold_scale;
+		push_constant.bilateral_filter_strong_blur_variance_threshold = denoiser_setting.bilateral_filter_strong_blur_variance_threshold;
+		push_constant.disocclusion_variance = denoiser_setting.disocclusion_variance;
+
+		RID shader = denoiser_shader.version_get_shader(denoiser_shader_version, mode);
+
+		RD::Uniform u_scene_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 0, scene_data_ubo);
+		RD::Uniform u_depth(RD::UNIFORM_TYPE_IMAGE, 1, p_denoiser_resource.depth_texture);
+		RD::Uniform u_history_depth(RD::UNIFORM_TYPE_IMAGE, 2, p_denoiser_resource.history_depth_texture);
+		RD::Uniform u_normal_roughness(RD::UNIFORM_TYPE_IMAGE, 3, p_denoiser_resource.normal_roughness_texture);
+		RD::Uniform u_history_num_frames_accumulated(RD::UNIFORM_TYPE_IMAGE, 4, p_denoiser_resource.history_num_frames_accumulated_texture);
+		RD::Uniform u_out_num_frames_accumulated(RD::UNIFORM_TYPE_IMAGE, 5, p_denoiser_resource.out_num_frames_accumulated_texture);
+		RD::Uniform u_diffuse_indirect(RD::UNIFORM_TYPE_IMAGE, 6, p_denoiser_resource.diffuse_texture);
+		RD::Uniform u_history_diffuse_indirect(RD::UNIFORM_TYPE_IMAGE, 7, p_denoiser_resource.history_diffuse_texture);
+		RD::Uniform u_out_diffuse_indirect(RD::UNIFORM_TYPE_IMAGE, 8, p_denoiser_resource.out_diffuse_texture);
+
+		RID uniform_set = uniform_set_cache->get_cache(shader, 0, u_scene_data, u_depth, u_history_depth, u_normal_roughness, u_history_num_frames_accumulated, u_out_num_frames_accumulated, u_diffuse_indirect, u_history_diffuse_indirect, u_out_diffuse_indirect);
+		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set, 0);
+		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
+		RD::get_singleton()->compute_list_dispatch_threads(compute_list, push_constant.screen_size[0], push_constant.screen_size[1], 1);
+
+		RD::get_singleton()->compute_list_end();
+
+		RD::get_singleton()->draw_command_end_label();
+	}
+}

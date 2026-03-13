@@ -74,7 +74,10 @@
 
 #define RB_SSGI SNAME("ssgi")
 #define RB_HISTORY SNAME("history")
-#define RB_PREV_VELOCITY SNAME("prev_velocity")
+#define RB_HISTORY_HIZ SNAME("history_hiz")
+#define RB_NUM_FRAMES_ACCUMULATED SNAME("num_frames_accumulated")
+#define RB_HISTORY_NUM_FRAMES_ACCUMULATED SNAME("history_num_frames_accumulated")
+
 
 class RenderSceneBuffersRD;
 

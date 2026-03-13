@@ -1829,10 +1829,15 @@ void SSEffects::ssgi_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers
 		RD::get_singleton()->texture_clear(clear_texture, Color(0, 0, 0, 0), 0, 1, 0, view_count);
 		clear_texture = p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_FINAL, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
 		RD::get_singleton()->texture_clear(clear_texture, Color(0, 0, 0, 0), 0, 1, 0, view_count);
+		clear_texture = p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_HISTORY_HIZ, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
+		RD::get_singleton()->texture_clear(clear_texture, Color(0, 0, 0, 0), 0, 1, 0, view_count);
+		clear_texture = p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_HISTORY_NUM_FRAMES_ACCUMULATED, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
+		RD::get_singleton()->texture_clear(clear_texture, Color(0, 0, 0, 0), 0, 1, 0, view_count);
 	}
 
 	p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_HIZ, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, p_ssgi_buffers.mipmaps);
 	p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_SSGI, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
+	p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_NUM_FRAMES_ACCUMULATED, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
 }
 
 void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_render_buffers, SSGIRenderBuffers &p_ssgi_buffers, const RID *p_normal_roughness_slices, const Projection *p_projections, const Projection *p_reprojections, const Transform3D &p_transform, const Vector3 *p_eye_offsets, RendererRD::CopyEffects &p_copy_effects, const SSGISettings &p_settings) {
@@ -1981,7 +1986,7 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			RD::Uniform u_normal_roughness(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 3, Vector<RID>{ nearest_sampler, normal_roughness_texture });
 			RD::Uniform u_ssgi(RD::UNIFORM_TYPE_IMAGE, 4, ssgi_texture);
 
-			RID restir_uniform_set = ssgi.restir[v].init_uniform_set(ssgi_shader, RESTIR_UNIFORM_SET);
+			RID restir_uniform_set = ssgi.restir[v].init_restir_uniform_set(ssgi_shader, RESTIR_UNIFORM_SET);
 
 			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(ssgi_shader, 0, u_last_frame, u_hiz, u_normal_roughness, u_ssgi, u_scene_data), 0);
 			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, restir_uniform_set, RESTIR_UNIFORM_SET);
@@ -2015,25 +2020,31 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			ReSTIR::ReSTIRResource restir_resource;
 			restir_resource.normal_roughness_texture = p_normal_roughness_slices[v];
 			restir_resource.depth_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0);
-			restir_resource.history_depth_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY, v, 0);
-			restir_resource.result_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_FINAL, v, 0);
-			restir_resource.history_result_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY, v, 0);
+			restir_resource.history_depth_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY_HIZ, v, 0);
+			restir_resource.diffuse_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_FINAL, v, 0);
+			restir_resource.history_diffuse_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY, v, 0);
 
 			ssgi.restir[v].process(p_render_buffers, restir_resource, scene_data);
 
-			RID ssgi_final = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0);
-			RID ssgi_history = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY, v, 0);
-			p_copy_effects.copy_to_rect(ssgi_final, ssgi_history, Rect2(0, 0, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height));
+			ReSTIR::ReSTIRDenoiserResource denoiser_resource;
+			denoiser_resource.normal_roughness_texture = p_normal_roughness_slices[v];
+			denoiser_resource.depth_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0);
+			denoiser_resource.history_depth_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY_HIZ, v, 0);
+			denoiser_resource.history_num_frames_accumulated_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY_NUM_FRAMES_ACCUMULATED, v, 0);
+			denoiser_resource.out_num_frames_accumulated_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_NUM_FRAMES_ACCUMULATED, v, 0);
+			denoiser_resource.diffuse_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_SSGI, v, 0);
+			denoiser_resource.history_diffuse_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY, v, 0);
+			denoiser_resource.out_diffuse_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_FINAL, v, 0);
+
+			ssgi.restir[v].process_denoise(p_render_buffers, denoiser_resource, scene_data);
+
+			p_copy_effects.copy_depth_to_rect(denoiser_resource.depth_texture, denoiser_resource.history_depth_texture, Rect2(0, 0, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height));
+			p_copy_effects.copy_to_rect(denoiser_resource.out_diffuse_texture, denoiser_resource.history_diffuse_texture, Rect2(0, 0, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height));
+			p_copy_effects.copy_depth_to_rect(denoiser_resource.out_num_frames_accumulated_texture, denoiser_resource.history_num_frames_accumulated_texture, Rect2(0, 0, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height));
 		}
 	}
 
 	{ //TODO: Validate Reservoirs
-	}
-
-	{ //TODO: Temproal Accumulation
-	}
-
-	{ //TODO: Spatial Bliateral Filter
 	}
 
 	// {
