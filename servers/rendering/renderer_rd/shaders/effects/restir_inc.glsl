@@ -107,17 +107,8 @@ bool will_change_sample_on_merge(
 
 layout(set = RESTIR_UNIFORM_SET, binding = 0) restrict uniform Setting {
 	ivec2 reservoir_size;
-
-	float temporal_pos_threshold;
-	float spatial_resampling_kernel_radius;
-	uint spatial_num_samples;
-	uint spatial_resampling_pass_index;
-	float spatial_resampling_occlusion_screen_trace_distance;
-
-	float resampling_depth_error_threshold;
-	float resampling_normal_dot_threshold;
 }
-restir_setting;
+reservoirs_setting;
 
 layout(set = RESTIR_UNIFORM_SET, binding = 1, std430) restrict buffer Reservoirs {
 	Reservoir data[];

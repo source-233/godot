@@ -312,7 +312,7 @@ void main() {
 		hit_sample.ray_direction = view_to_world_normal(ray_dir.xyz);
 		hit_sample.distance = length(cur_pos - pos);
 		hit_sample.hit_normal = view_to_world_normal(hit_normal);
-		hit_sample.out_radiance = color.rgb;
+		hit_sample.out_radiance = color.rgb *= params.intensity;
 		hit_sample.pdf = luminance(color.rgb) * validity;
 		hit_sample.validity = validity;
 

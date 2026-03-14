@@ -1825,19 +1825,23 @@ void SSEffects::ssgi_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers
 		}
 
 		RID clear_texture;
-		clear_texture = p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_HISTORY, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
+		clear_texture = p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_HISTORY, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, internal_size, view_count, 1);
 		RD::get_singleton()->texture_clear(clear_texture, Color(0, 0, 0, 0), 0, 1, 0, view_count);
-		clear_texture = p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_FINAL, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
+		clear_texture = p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_FINAL, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, internal_size, view_count, 1);
 		RD::get_singleton()->texture_clear(clear_texture, Color(0, 0, 0, 0), 0, 1, 0, view_count);
-		clear_texture = p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_HISTORY_HIZ, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
+		clear_texture = p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_HISTORY_HIZ, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, internal_size, view_count, 1);
 		RD::get_singleton()->texture_clear(clear_texture, Color(0, 0, 0, 0), 0, 1, 0, view_count);
-		clear_texture = p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_HISTORY_NUM_FRAMES_ACCUMULATED, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
+		clear_texture = p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_HISTORY_NUM_FRAMES_ACCUMULATED, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT, RD::TEXTURE_SAMPLES_1, internal_size, view_count, 1);
 		RD::get_singleton()->texture_clear(clear_texture, Color(0, 0, 0, 0), 0, 1, 0, view_count);
 	}
 
-	p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_HIZ, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, p_ssgi_buffers.mipmaps);
-	p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_SSGI, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
-	p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_NUM_FRAMES_ACCUMULATED, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, p_ssgi_buffers.size, view_count, 1);
+	p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_HIZ, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, internal_size, view_count, p_ssgi_buffers.mipmaps);
+	p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_SSGI, p_color_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, internal_size, view_count, 1);
+	p_render_buffers->create_texture(RB_SCOPE_SSGI, RB_NUM_FRAMES_ACCUMULATED, RD::DATA_FORMAT_R32_SFLOAT, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT, RD::TEXTURE_SAMPLES_1, internal_size, view_count, 1);
+
+	for (uint32_t v = 0; v < view_count; v++) {
+		ssgi.restir[v].allocate_buffers(p_ssgi_buffers.size);
+	}
 }
 
 void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_render_buffers, SSGIRenderBuffers &p_ssgi_buffers, const RID *p_normal_roughness_slices, const Projection *p_projections, const Projection *p_reprojections, const Transform3D &p_transform, const Vector3 *p_eye_offsets, RendererRD::CopyEffects &p_copy_effects, const SSGISettings &p_settings) {
@@ -1880,8 +1884,6 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 
 		for (uint32_t v = 0; v < view_count; v++) {
 			ReSTIR::ReSTIRSetting restir_setting{};
-			restir_setting.reservoir_size[0] = p_ssgi_buffers.size.width;
-			restir_setting.reservoir_size[1] = p_ssgi_buffers.size.height;
 			restir_setting.temporal_pos_threshold = 0.05f;
 			restir_setting.spatial_resampling_kernel_radius = 1.0;
 			restir_setting.spatial_num_samples = 4;
@@ -1890,7 +1892,7 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			restir_setting.resampling_depth_error_threshold = 0.01;
 			restir_setting.resampling_normal_dot_threshold = 0.5;
 			ssgi.restir[v].set_setting(restir_setting);
-			ssgi.restir[v].allocate_buffers(p_ssgi_buffers.size);
+
 		}
 	}
 
@@ -2043,46 +2045,6 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			p_copy_effects.copy_depth_to_rect(denoiser_resource.out_num_frames_accumulated_texture, denoiser_resource.history_num_frames_accumulated_texture, Rect2(0, 0, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height));
 		}
 	}
-
-	{ //TODO: Validate Reservoirs
-	}
-
-	// {
-	// 	RD::get_singleton()->draw_command_begin_label("SSGI Resolve");
-	// 	RID resolve_shader = ssgi.resolve_shader.version_get_shader(ssgi.resolve_shader_version, 0);
-
-	// 	for (uint32_t v = 0; v < view_count; v++) {
-	// 		RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
-	// 		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, ssgi.resolve_pipeline.get_rid());
-
-	// 		SSGIResolvePushConstant push_constant;
-	// 		push_constant.screen_size[0] = p_ssgi_buffers.size.width;
-	// 		push_constant.screen_size[1] = p_ssgi_buffers.size.height;
-	// 		push_constant.view_index = v;
-	// 		push_constant.weight = 32;
-	// 		RID ssgi_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_SSGI, v, 0);
-	// 		RID ssgi_history = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY, v, 0);
-	// 		RID hiz_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0, 1, p_ssgi_buffers.mipmaps);
-	// 		RID ssgi_final = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_FINAL, v, 0);
-
-	// 		RD::Uniform u_scene_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 0, ssgi.ubo);
-	// 		RD::Uniform u_ssgi(RD::UNIFORM_TYPE_IMAGE, 1, ssgi_texture);
-	// 		RD::Uniform u_history(RD::UNIFORM_TYPE_IMAGE, 2, ssgi_history);
-	// 		RD::Uniform u_hiz(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE, 3, Vector<RID>{ nearest_sampler, hiz_texture });
-	// 		RD::Uniform u_final(RD::UNIFORM_TYPE_IMAGE, 4, ssgi_final);
-
-	// 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(resolve_shader, 0, u_ssgi, u_history, u_hiz, u_final, u_scene_data), 0);
-	// 		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
-	// 		RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height, 1);
-
-	// 		RD::get_singleton()->compute_list_end();
-
-	// 		p_copy_effects.copy_to_rect(ssgi_final, ssgi_history, Rect2(0, 0, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height));
-	// 	}
-
-	// 	RD::get_singleton()->draw_command_end_label();
-	// }
-
 }
 
 /* Subsurface scattering */

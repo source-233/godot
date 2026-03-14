@@ -70,9 +70,6 @@ ReSTIR::~ReSTIR() {
 	}
 	restir_shader.version_free(restir_shader_version);
 
-	if (restir_setting_ubo.is_valid()) {
-		RD::get_singleton()->free_rid(restir_setting_ubo);
-	}
 	if (scene_data_ubo.is_valid()) {
 		RD::get_singleton()->free_rid(scene_data_ubo);
 	}
@@ -84,11 +81,11 @@ ReSTIR::~ReSTIR() {
 }
 
 void ReSTIR::allocate_buffers(Size2i size) {
-	size_t reservoirs_size = size.width * size.height;
-	if (current_reservoirs_size == reservoirs_size) {
+	if (reservoirs_setting.reservoir_size[0] == size.width && reservoirs_setting.reservoir_size[1] == size.height) {
 		return;
 	}
 	free_buffers();
+	size_t reservoirs_size = size.width * size.height;
 
 	reservoirs = RD::get_singleton()->storage_buffer_create(sizeof(Reservoir) * reservoirs_size);
 	RD::get_singleton()->set_resource_name(reservoirs, "Reservoirs");
@@ -96,8 +93,15 @@ void ReSTIR::allocate_buffers(Size2i size) {
 	temporal_reservoirs = RD::get_singleton()->storage_buffer_create(sizeof(Reservoir) * reservoirs_size);
 	RD::get_singleton()->set_resource_name(temporal_reservoirs, "Temporal_Reservoirs");
 
-	current_reservoirs_size = reservoirs_size;
+	reservoirs_setting.reservoir_size[0] = size.width;
+	reservoirs_setting.reservoir_size[1] = size.height;
 
+	if (reservoirs_setting_ubo.is_null()) {
+		reservoirs_setting_ubo = RD::get_singleton()->uniform_buffer_create(sizeof(ReservoirsSetting));
+	}
+	RD::get_singleton()->buffer_update(reservoirs_setting_ubo, 0, sizeof(ReservoirsSetting), &reservoirs_setting);
+
+	// ReSTIR Temporal Clear
 	RD::get_singleton()->draw_command_begin_label("ReSTIR Temporal Clear");
 
 	RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
@@ -120,25 +124,24 @@ void ReSTIR::free_buffers() {
 	if (temporal_reservoirs.is_valid()) {
 		RD::get_singleton()->free_rid(temporal_reservoirs);
 	}
-	current_reservoirs_size = 0;
-}
-
-void ReSTIR::set_setting(ReSTIRSetting &setting) {
-	if (restir_setting_ubo.is_null()) {
-		restir_setting_ubo = RD::get_singleton()->uniform_buffer_create(sizeof(ReSTIRSetting));
-		RD::get_singleton()->set_resource_name(restir_setting_ubo, "ReSTIRSetting");
+	if (reservoirs_setting_ubo.is_valid()) {
+		RD::get_singleton()->free_rid(reservoirs_setting_ubo);
 	}
-	RD::get_singleton()->buffer_update(restir_setting_ubo, 0, sizeof(ReSTIRSetting), &setting);
+	reservoirs_setting = { 0, 0 };
 }
 
 RID ReSTIR::init_restir_uniform_set(RID shader, uint32_t set_num) {
 	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
 	ERR_FAIL_NULL_V(uniform_set_cache, RID());
 	
-	RD::Uniform u_restir_setting(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 0, restir_setting_ubo);
+	RD::Uniform u_setting(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 0, reservoirs_setting_ubo);
 	RD::Uniform u_buffer(RD::UNIFORM_TYPE_STORAGE_BUFFER, 1, reservoirs);
 	RD::Uniform u_temp_buffer(RD::UNIFORM_TYPE_STORAGE_BUFFER, 2, temporal_reservoirs);
-	return uniform_set_cache->get_cache(shader, set_num, u_restir_setting, u_buffer, u_temp_buffer);
+	return uniform_set_cache->get_cache(shader, set_num, u_setting, u_buffer, u_temp_buffer);
+}
+
+void ReSTIR::set_setting(ReSTIRSetting &setting) {
+	restir_setting = setting;
 }
 
 void ReSTIR::process(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRResource &p_restir_resource, const SceneData &p_scene_data) {
@@ -169,6 +172,13 @@ void ReSTIR::process(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRRes
 		push_constant.screen_size[0] = MAX(1, internal_size.width);
 		push_constant.screen_size[1] = MAX(1, internal_size.height);
 		push_constant.frame_count = RSG::rasterizer->get_frame_number();
+		push_constant.temporal_pos_threshold = restir_setting.temporal_pos_threshold;
+		push_constant.spatial_resampling_kernel_radius = restir_setting.spatial_resampling_kernel_radius;
+		push_constant.spatial_num_samples = restir_setting.spatial_num_samples;
+		push_constant.spatial_resampling_pass_index = restir_setting.spatial_resampling_pass_index;
+		push_constant.spatial_resampling_occlusion_screen_trace_distance = restir_setting.spatial_resampling_occlusion_screen_trace_distance;
+		push_constant.resampling_depth_error_threshold = restir_setting.resampling_depth_error_threshold;
+		push_constant.resampling_normal_dot_threshold = restir_setting.resampling_normal_dot_threshold;
 
 		RID shader = restir_shader.version_get_shader(restir_shader_version, mode);
 
@@ -201,6 +211,13 @@ void ReSTIR::process(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRRes
 		push_constant.screen_size[0] = MAX(1, internal_size.width);
 		push_constant.screen_size[1] = MAX(1, internal_size.height);
 		push_constant.frame_count = RSG::rasterizer->get_frame_number();
+		push_constant.temporal_pos_threshold = restir_setting.temporal_pos_threshold;
+		push_constant.spatial_resampling_kernel_radius = restir_setting.spatial_resampling_kernel_radius;
+		push_constant.spatial_num_samples = restir_setting.spatial_num_samples;
+		push_constant.spatial_resampling_pass_index = restir_setting.spatial_resampling_pass_index;
+		push_constant.spatial_resampling_occlusion_screen_trace_distance = restir_setting.spatial_resampling_occlusion_screen_trace_distance;
+		push_constant.resampling_depth_error_threshold = restir_setting.resampling_depth_error_threshold;
+		push_constant.resampling_normal_dot_threshold = restir_setting.resampling_normal_dot_threshold;
 
 		RID shader = restir_shader.version_get_shader(restir_shader_version, mode);
 
@@ -229,6 +246,13 @@ void ReSTIR::process(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRRes
 		push_constant.screen_size[0] = MAX(1, internal_size.width);
 		push_constant.screen_size[1] = MAX(1, internal_size.height);
 		push_constant.frame_count = RSG::rasterizer->get_frame_number();
+		push_constant.temporal_pos_threshold = restir_setting.temporal_pos_threshold;
+		push_constant.spatial_resampling_kernel_radius = restir_setting.spatial_resampling_kernel_radius;
+		push_constant.spatial_num_samples = restir_setting.spatial_num_samples;
+		push_constant.spatial_resampling_pass_index = restir_setting.spatial_resampling_pass_index;
+		push_constant.spatial_resampling_occlusion_screen_trace_distance = restir_setting.spatial_resampling_occlusion_screen_trace_distance;
+		push_constant.resampling_depth_error_threshold = restir_setting.resampling_depth_error_threshold;
+		push_constant.resampling_normal_dot_threshold = restir_setting.resampling_normal_dot_threshold;
 
 		int32_t mode = RESTIR_PIPELINE_INTEGRATE_AND_UPSAMPLE;
 

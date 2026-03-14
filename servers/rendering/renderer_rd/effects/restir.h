@@ -43,6 +43,7 @@ public:
 	~ReSTIR();
 
 	void allocate_buffers(Size2i size);
+	RID init_restir_uniform_set(RID shader, uint32_t set_num);
 	void free_buffers();
 
 	struct SceneData {
@@ -55,8 +56,6 @@ public:
 	};
 
 	struct ReSTIRSetting {
-		int32_t reservoir_size[2] = { 0, 0 };
-
 		float temporal_pos_threshold = 0.05f;
 		float spatial_resampling_kernel_radius = 1.0f;
 		uint32_t spatial_num_samples = 4;
@@ -65,11 +64,8 @@ public:
 
 		float resampling_depth_error_threshold = 0.01f;
 		float resampling_normal_dot_threshold = 0.5f;
-
-		int32_t pad[3];
 	};
 	void set_setting(ReSTIRSetting &setting);
-	RID init_restir_uniform_set(RID shader, uint32_t set_num);
 
 	struct ReSTIRResource {
 		RID normal_roughness_texture;
@@ -89,7 +85,7 @@ public:
 		float bilateral_filter_normal_angle_threshold_scale = 0.5f;
 		float bilateral_filter_strong_blur_variance_threshold = 0.05f;
 		float disocclusion_variance = 0.1f;
-	} denoiser_setting;
+	};
 	void set_denoiser_setting(ReSTIRDenoiserSetting &setting);
 
 	struct ReSTIRDenoiserResource {
@@ -135,9 +131,20 @@ private:
 		RESTIR_PIPELINE_MAX = 4,
 	};
 
+	ReSTIRSetting restir_setting;
+
 	struct ReSTIRPushConstant {
 		int32_t screen_size[2];
 		uint32_t frame_count;
+
+		float temporal_pos_threshold;
+		float spatial_resampling_kernel_radius;
+		uint32_t spatial_num_samples;
+		uint32_t spatial_resampling_pass_index;
+		float spatial_resampling_occlusion_screen_trace_distance;
+
+		float resampling_depth_error_threshold;
+		float resampling_normal_dot_threshold;
 	};
 
 	RestirShaderRD restir_shader;
@@ -145,9 +152,13 @@ private:
 	PipelineDeferredRD restir_pipelines[RESTIR_PIPELINE_MAX];
 
 	RID scene_data_ubo;
-	RID restir_setting_ubo;
 
-	size_t current_reservoirs_size = 0;
+	struct ReservoirsSetting {
+		int32_t reservoir_size[2] = { 0, 0 };
+		int32_t pad[2] = { 0, 0 };
+	} reservoirs_setting;
+	RID reservoirs_setting_ubo;
+
 	RID reservoirs;
 	RID temporal_reservoirs;
 
@@ -157,9 +168,12 @@ private:
 		DENOISER_PIPELINE_MAX = 2,
 	};
 
+	ReSTIRDenoiserSetting denoiser_setting;
+
 	struct DenoiserPushConstant {
 		int32_t screen_size[2];
 		uint32_t frame_count;
+
 		float max_frames_accumulated;
 		float history_distance_threshold;
 		float bilateral_filter_spatial_kernel_radius;
