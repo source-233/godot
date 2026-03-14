@@ -16,9 +16,9 @@ struct Reservoir {
 	float pad; // 填充字段，保持结构体大小一致
 };
 
-uint reservoir_index(ivec2 pixel, ivec2 screen_size) // 到reservoir的索引
+uint reservoir_index(ivec2 pos, ivec2 reservoir_size) // 到reservoir的索引
 {
-	return pixel.x + pixel.y * screen_size.x;
+	return pos.x + pos.y * reservoir_size.x;
 }
 
 void clean_reservoir(inout Reservoir self) {

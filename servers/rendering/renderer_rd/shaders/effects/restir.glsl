@@ -122,7 +122,6 @@ const float PI = 3.14159265f;
 const float Diffuse_Lambert = 1.0f / PI;
 
 float calculate_jacobian(vec3 receiver_position, vec3 neighbor_receiver_position, const HitSample neighbor_sample) {
-	// 从ray_direction和distance计算hit_pos
 	vec3 neighbor_hit_pos = neighbor_receiver_position + neighbor_sample.ray_direction * neighbor_sample.distance;
 
 	vec3 sample_to_receiver_neighbor = neighbor_receiver_position - neighbor_hit_pos;
@@ -131,7 +130,7 @@ float calculate_jacobian(vec3 receiver_position, vec3 neighbor_receiver_position
 
 	vec3 sample_to_receiver = receiver_position - neighbor_hit_pos;
 	float new_distance = length(sample_to_receiver);
-	float new_cos_angle = clamp(dot(neighbor_sample.hit_normal, vec3(sample_to_receiver / new_distance)), 0.0f, 1.0f);
+	float new_cos_angle = clamp(dot(neighbor_sample.hit_normal, vec3(sample_to_receiver / new_distance)), 0.0001f, 1.0f);
 
 	float jacobian = (new_cos_angle * original_distance * original_distance) / (original_cos_angle * new_distance * new_distance);
 
@@ -145,18 +144,35 @@ float calculate_jacobian(vec3 receiver_position, vec3 neighbor_receiver_position
 	}
 
 	// Discard extreme re-weights that show up as fireflies
-	if (jacobian > 10.0f || jacobian < 1 / 10.0f) {
+	if (jacobian > 1.1f || jacobian < 1 / 10.0f) {
 		jacobian = 0;
 	}
 
 	return jacobian;
 }
 
+const int kNumSamples = 4;
+const ivec2 kOffsets2x2[4] = {
+	ivec2( 0, 0),
+	ivec2( 0, 1),
+	ivec2( 1, 1),
+	ivec2( 1, 0),
+};
+ivec2 get_jitter_offset(uint idx) {
+	if (any(notEqual(params.screen_size, reservoirs_setting.reservoir_size))) {
+		return kOffsets2x2[idx % kNumSamples];
+	}
+	return kOffsets2x2[0];
+}
+
 #ifdef RESTIR_PIPELINE_TEMPORAL_REUSE
 void temporal_resampling(const ivec2 pixel_pos) {
 	ivec2 reservoir_coord = pixel_pos;
-	vec2 screen_uv = (vec2(pixel_pos) + 0.5f) / vec2(reservoirs_setting.reservoir_size);
-	const float screen_depth = imageLoad(source_depth, reservoir_coord).x;
+	ivec2 screen_coord = ivec2(reservoir_coord * (vec2(params.screen_size) / vec2(reservoirs_setting.reservoir_size)));
+	screen_coord += get_jitter_offset(params.frame_count);
+	vec2 screen_uv = (vec2(screen_coord) + 0.5f) / vec2(params.screen_size);
+
+	const float screen_depth = imageLoad(source_depth, screen_coord).x;
 
 	if (any(greaterThanEqual(reservoir_coord, reservoirs_setting.reservoir_size)) || screen_depth <= 0.0f) {
 		return;
@@ -164,33 +180,30 @@ void temporal_resampling(const ivec2 pixel_pos) {
 
 	Reservoir reservoir = reservoirs.data[reservoir_index(reservoir_coord, ivec2(reservoirs_setting.reservoir_size))];
 
-	vec3 world_position = screen_to_world_pos(vec3(screen_uv, screen_depth));
 	uint noise_seed = random_seed(ivec3(pixel_pos, params.frame_count));
 
 	const vec3 uv_history = reprojection(screen_uv, screen_depth);
 	const bool b_history_was_on_screen = all(lessThanEqual(uv_history, vec3(1.0f))) && all(greaterThanEqual(uv_history, vec3(0.0f)));
 
 	if (b_history_was_on_screen) {
-		vec3 view_normal = load_normal(reservoir_coord);
+		vec3 view_normal = load_normal(screen_coord);
 
-		ivec2 reservoir_coord_history = ivec2(uv_history.xy * reservoirs_setting.reservoir_size);
-		ivec2 screen_coord_history = reservoir_coord_history.xy * (params.screen_size / reservoirs_setting.reservoir_size);
+		ivec2 screen_coord_history = ivec2(uv_history.xy * vec2(params.screen_size));
+		ivec2 reservoir_coord_history = ivec2(screen_coord_history * (vec2(reservoirs_setting.reservoir_size) / vec2(params.screen_size)));
 
 		// Similarity detection
 		float prev_scene_depth = imageLoad(source_history_depth, screen_coord_history).x;
 		float depth_error = abs(max(0.3f, view_normal.z) * (prev_scene_depth / screen_depth - 1.0));
 		bool b_history_from_nearby = depth_error < params.temporal_pos_threshold;
 
-		if (b_history_from_nearby && uv_history.z > 0.0f) {
+		if (b_history_from_nearby) {
 			Reservoir prev_reservoir = temporal_reservoirs.data[reservoir_index(reservoir_coord_history, ivec2(reservoirs_setting.reservoir_size))];
-
 			prev_reservoir.sample_count = min(prev_reservoir.sample_count, 20u);
 
-			vec3 history_sample_world_position = screen_to_world_pos(vec3(uv_history.xy, prev_scene_depth));
+			vec3 world_position = screen_to_world_pos(vec3(screen_uv, screen_depth));
+			vec3 history_world_position = screen_to_world_pos(vec3(uv_history.xy, prev_scene_depth));
 
-			// @todo - causes fireflies
-			float jacobian = calculate_jacobian(world_position, history_sample_world_position, prev_reservoir.hsample);
-
+			float jacobian = calculate_jacobian(world_position, history_world_position, prev_reservoir.hsample);
 			if (jacobian > 0) {
 				merge_reservoirs(reservoir, prev_reservoir, jacobian, random_float(noise_seed));
 			}
@@ -204,8 +217,11 @@ void temporal_resampling(const ivec2 pixel_pos) {
 #ifdef RESTIR_PIPELINE_SPATIAL_REUSE
 void spatial_resampling(const ivec2 pixel_pos) {
 	ivec2 reservoir_coord = pixel_pos;
-	vec2 screen_uv = (vec2(pixel_pos) + 0.5f) / params.screen_size;
-	const float screen_depth = imageLoad(source_depth, reservoir_coord).x;
+	ivec2 screen_coord = ivec2(reservoir_coord * (vec2(params.screen_size) / vec2(reservoirs_setting.reservoir_size)));
+	screen_coord += get_jitter_offset(params.frame_count);
+	vec2 screen_uv = (vec2(screen_coord) + 0.5f) / vec2(params.screen_size);
+
+	const float screen_depth = imageLoad(source_depth, screen_coord).x;
 
 	if (any(greaterThanEqual(reservoir_coord, reservoirs_setting.reservoir_size)) || screen_depth <= 0.0f) {
 		return;
@@ -248,7 +264,6 @@ void spatial_resampling(const ivec2 pixel_pos) {
 				float jacobian = calculate_jacobian(world_position, neighbor_world_position, neighbor_reservoir.hsample);
 
 				bool b_neighbor_hit_visible = true;
-				float swap_noise = random_float(noise_seed);
 
 				// TODO: screen raycast, visibility check
 				// if (params.spatial_resampling_occlusion_screen_trace_distance > 0.0f && jacobian > 0.0f && will_change_sample_on_merge(reservoir, neighbor_reservoir, neighbor_reservoir.pdf * jacobian, swap_noise)) {
@@ -263,7 +278,7 @@ void spatial_resampling(const ivec2 pixel_pos) {
 				// }
 
 				if (b_neighbor_hit_visible) {
-					merge_reservoirs(reservoir, neighbor_reservoir, jacobian, swap_noise);
+					merge_reservoirs(reservoir, neighbor_reservoir, jacobian, random_float(noise_seed));
 				}
 			}
 		}

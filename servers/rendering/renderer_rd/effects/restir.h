@@ -79,7 +79,7 @@ public:
 	struct ReSTIRDenoiserSetting {
 		float max_frames_accumulated = 16.0f;
 		float history_distance_threshold = 0.5f;
-		float bilateral_filter_spatial_kernel_radius = 0.005f;
+		float bilateral_filter_spatial_kernel_radius = 0.01f;
 		uint32_t bilateral_filter_num_samples = 16u;
 		float bilateral_filter_depth_weight_scale = 10.0f;
 		float bilateral_filter_normal_angle_threshold_scale = 0.5f;

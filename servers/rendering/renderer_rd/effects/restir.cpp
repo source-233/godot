@@ -96,9 +96,7 @@ void ReSTIR::allocate_buffers(Size2i size) {
 	reservoirs_setting.reservoir_size[0] = size.width;
 	reservoirs_setting.reservoir_size[1] = size.height;
 
-	if (reservoirs_setting_ubo.is_null()) {
-		reservoirs_setting_ubo = RD::get_singleton()->uniform_buffer_create(sizeof(ReservoirsSetting));
-	}
+	reservoirs_setting_ubo = RD::get_singleton()->uniform_buffer_create(sizeof(ReservoirsSetting));
 	RD::get_singleton()->buffer_update(reservoirs_setting_ubo, 0, sizeof(ReservoirsSetting), &reservoirs_setting);
 
 	// ReSTIR Temporal Clear
@@ -127,7 +125,7 @@ void ReSTIR::free_buffers() {
 	if (reservoirs_setting_ubo.is_valid()) {
 		RD::get_singleton()->free_rid(reservoirs_setting_ubo);
 	}
-	reservoirs_setting = { 0, 0 };
+	reservoirs_setting = {{0, 0}, {0, 0}};
 }
 
 RID ReSTIR::init_restir_uniform_set(RID shader, uint32_t set_num) {
@@ -192,7 +190,7 @@ void ReSTIR::process(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRRes
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(shader, 0, u_scene_data, u_depth, u_normal_roughness, u_history_depth), 0);
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set, RESTIR_UNIFORM_SET);
 		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
-		RD::get_singleton()->compute_list_dispatch_threads(compute_list, push_constant.screen_size[0], push_constant.screen_size[1], 1);
+		RD::get_singleton()->compute_list_dispatch_threads(compute_list, reservoirs_setting.reservoir_size[0], reservoirs_setting.reservoir_size[1], 1);
 
 		RD::get_singleton()->compute_list_end();
 
@@ -230,7 +228,7 @@ void ReSTIR::process(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRRes
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(shader, 0, u_scene_data, u_depth, u_normal_roughness), 0);
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set, RESTIR_UNIFORM_SET);
 		RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
-		RD::get_singleton()->compute_list_dispatch_threads(compute_list, push_constant.screen_size[0], push_constant.screen_size[1], 1);
+		RD::get_singleton()->compute_list_dispatch_threads(compute_list, reservoirs_setting.reservoir_size[0], reservoirs_setting.reservoir_size[1], 1);
 
 		RD::get_singleton()->compute_list_end();
 

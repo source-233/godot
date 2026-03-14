@@ -24,12 +24,13 @@ layout(rgba16f, set = 0, binding = 4) uniform restrict writeonly image2D output_
 
 layout(push_constant, std430) uniform Params {
 	ivec2 screen_size;
+	ivec2 compute_size;
 	int mipmaps;
 	int num_steps;
 	float depth_tolerance;
 	float intensity;
 	int view_index;
-	float frame_count;
+	uint frame_count;
 }
 params;
 
@@ -154,8 +155,23 @@ float luminance(vec3 color) {
 	return dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
 }
 
+const int kNumSamples = 4;
+const ivec2 kOffsets2x2[4] = {
+	ivec2( 0, 0),
+	ivec2( 0, 1),
+	ivec2( 1, 1),
+	ivec2( 1, 0),
+};
+ivec2 get_jitter_offset(uint idx) {
+	if (any(notEqual(params.screen_size, params.compute_size))) {
+		return kOffsets2x2[idx % kNumSamples];
+	}
+	return kOffsets2x2[0];
+}
+
 void main() {
-	ivec2 pixel_pos = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 pixel_pos = ivec2(gl_GlobalInvocationID.xy) * (params.screen_size / params.compute_size);
+	pixel_pos += get_jitter_offset(params.frame_count);
 
 	if (any(greaterThanEqual(pixel_pos, params.screen_size))) {
 		return;
@@ -291,13 +307,13 @@ void main() {
 
 		vec3 hit_normal = texelFetch(source_normal_roughness, cur_pixel_pos, 0).xyz * 2.0 - 1.0;
 
-		if (all(lessThan(abs(screen_ray_dir.xy * t), 2.0 / params.screen_size))) { //自相交
+		if (all(lessThan(abs(screen_ray_dir.xy * t), 2.0 / params.screen_size))) {
 			if (dot(ray_dir.xyz, hit_normal) >= 0.0) {
 				validity = 0.0;
 			}
 		}
 
-		vec3 cur_pos = screen_to_view_pos(cur_screen_pos); //这里需要处理超出屏幕的情况
+		vec3 cur_pos = screen_to_view_pos(cur_screen_pos);
 		vec3 hit_pos = screen_to_view_pos(vec3(cur_screen_pos.xy, hit_depth));
 
 		float delta = length(cur_pos - hit_pos);
@@ -312,25 +328,20 @@ void main() {
 		hit_sample.ray_direction = view_to_world_normal(ray_dir.xyz);
 		hit_sample.distance = length(cur_pos - pos);
 		hit_sample.hit_normal = view_to_world_normal(hit_normal);
-		hit_sample.out_radiance = color.rgb *= params.intensity;
+		hit_sample.out_radiance = color.rgb * params.intensity;
 		hit_sample.pdf = luminance(color.rgb) * validity;
 		hit_sample.validity = validity;
 
 		Reservoir reservoir = new_reservoir();
-		reservoir.pad = 0.0f;
-		bool is_add = add_sample_to_reservoir(reservoir, hit_sample, ray_dir.w, random_float(noise_seed));
-		if (is_add) {
-			reservoir.pad = 1.0f;
-		}
+		add_sample_to_reservoir(reservoir, hit_sample, ray_dir.w, random_float(noise_seed));
 
-		reservoirs.data[reservoir_index(pixel_pos.xy, params.screen_size)] = reservoir;
+		reservoirs.data[reservoir_index(ivec2(gl_GlobalInvocationID.xy).xy, params.compute_size)] = reservoir;
 
-		color = vec4(view_to_world_normal(ray_dir.xyz), 1.0);
+		color = vec4(reprojected_pos.z, 0.0, cur_screen_pos.z, screen_pos.z);
 	} else {
 		Reservoir reservoir = new_reservoir();
-		reservoirs.data[reservoir_index(pixel_pos.xy, params.screen_size)] = reservoir;
+		reservoirs.data[reservoir_index(ivec2(gl_GlobalInvocationID.xy).xy, params.compute_size)] = reservoir;
 	}
-	color *= params.intensity;
 
 	imageStore(output_color, pixel_pos, color);
 }

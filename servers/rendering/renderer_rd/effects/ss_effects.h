@@ -559,18 +559,13 @@ private:
 
 	struct SSGIPushConstant {
 		int32_t screen_size[2];
+		int32_t compute_size[2];
 		int32_t mipmaps;
 		int32_t num_steps;
 		float depth_tolerance;
 		float intensity;
 		uint32_t view_index;
-		float frame_count;
-	};
-
-	struct SSGIResolvePushConstant {
-		int32_t screen_size[2];
-		uint32_t view_index;
-		uint32_t weight;
+		uint32_t frame_count;
 	};
 
 	struct SSGI {

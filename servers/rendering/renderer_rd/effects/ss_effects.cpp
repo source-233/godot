@@ -1794,8 +1794,8 @@ void SSEffects::ssgi_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers
 	Vector2i internal_size = p_render_buffers->get_internal_size();
 	p_ssgi_buffers.size = p_ssgi_buffers.half_size ? (internal_size / 2) : internal_size;
 
-	uint32_t cur_width = p_ssgi_buffers.size.width;
-	uint32_t cur_height = p_ssgi_buffers.size.height;
+	uint32_t cur_width = internal_size.width;
+	uint32_t cur_height = internal_size.height;
 	p_ssgi_buffers.mipmaps = 1;
 
 	while (cur_width > 1 && cur_height > 1) {
@@ -1811,12 +1811,12 @@ void SSEffects::ssgi_allocate_buffers(Ref<RenderSceneBuffersRD> p_render_buffers
 	uint32_t view_count = p_render_buffers->get_view_count();
 
 	bool should_create = true;
-	bool has_texture = p_render_buffers->has_texture(RB_SCOPE_SSGI, RB_HISTORY);
+	bool has_texture = p_render_buffers->has_texture(RB_SCOPE_SSGI, RB_FINAL);
 
 	if (has_texture) {
-		RID ssgi_texture = p_render_buffers->get_texture(RB_SCOPE_SSGI, RB_HISTORY);
+		RID ssgi_texture = p_render_buffers->get_texture(RB_SCOPE_SSGI, RB_FINAL);
 		RD::TextureFormat texture_format = RD::get_singleton()->texture_get_format(ssgi_texture);
-		should_create = texture_format.width != (uint32_t)p_ssgi_buffers.size.width || texture_format.height != (uint32_t)p_ssgi_buffers.size.height || texture_format.array_layers != view_count;
+		should_create = texture_format.width != (uint32_t)internal_size.width || texture_format.height != (uint32_t)internal_size.height || texture_format.array_layers != view_count;
 	}
 
 	if (should_create) {
@@ -1850,6 +1850,7 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 	MaterialStorage *material_storage = MaterialStorage::get_singleton();
 	ERR_FAIL_NULL(material_storage);
 
+	Vector2i internal_size = p_render_buffers->get_internal_size();
 	uint32_t view_count = p_render_buffers->get_view_count();
 
 	Projection inv_view_matrix = Projection(p_transform);
@@ -1892,7 +1893,6 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			restir_setting.resampling_depth_error_threshold = 0.01;
 			restir_setting.resampling_normal_dot_threshold = 0.5;
 			ssgi.restir[v].set_setting(restir_setting);
-
 		}
 	}
 
@@ -1905,7 +1905,7 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 		for (uint32_t v = 0; v < view_count; v++) {
 			RID src_texture = p_render_buffers->get_depth_texture(v);
 			RID dest_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0);
-			p_copy_effects.copy_depth_to_rect(src_texture, dest_texture, Rect2i(Vector2i(), p_ssgi_buffers.size));
+			p_copy_effects.copy_depth_to_rect(src_texture, dest_texture, Rect2i(Vector2i(), internal_size));
 		}
 
 		RD::get_singleton()->draw_command_end_label();
@@ -1917,8 +1917,8 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 		for (uint32_t v = 0; v < view_count; v++) {
 			for (uint32_t m = 1; m < p_ssgi_buffers.mipmaps; m++) {
 				SSGIHizPushConstant push_constant{};
-				push_constant.screen_size[0] = MAX(1, p_ssgi_buffers.size.width >> m);
-				push_constant.screen_size[1] = MAX(1, p_ssgi_buffers.size.height >> m);
+				push_constant.screen_size[0] = MAX(1, internal_size.width >> m);
+				push_constant.screen_size[1] = MAX(1, internal_size.height >> m);
 
 				RID source = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, m - 1);
 				RID dest = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, m);
@@ -1967,8 +1967,10 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, ssgi.ssgi_pipeline.get_rid());
 
 			SSGIPushConstant push_constant{};
-			push_constant.screen_size[0] = p_ssgi_buffers.size.width;
-			push_constant.screen_size[1] = p_ssgi_buffers.size.height;
+			push_constant.screen_size[0] = internal_size.width;
+			push_constant.screen_size[1] = internal_size.height;
+			push_constant.compute_size[0] = p_ssgi_buffers.size.width;
+			push_constant.compute_size[1] = p_ssgi_buffers.size.height;
 			push_constant.mipmaps = p_ssgi_buffers.mipmaps;
 			push_constant.intensity = p_settings.intensity;
 			push_constant.depth_tolerance = p_settings.depth_tolerance;
@@ -1993,7 +1995,7 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set_cache->get_cache(ssgi_shader, 0, u_last_frame, u_hiz, u_normal_roughness, u_ssgi, u_scene_data), 0);
 			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, restir_uniform_set, RESTIR_UNIFORM_SET);
 			RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
-			RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height, 1);
+			RD::get_singleton()->compute_list_dispatch_threads(compute_list, push_constant.compute_size[0], push_constant.compute_size[1], 1);
 
 			RD::get_singleton()->compute_list_end();
 		}
@@ -2040,9 +2042,9 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 
 			ssgi.restir[v].process_denoise(p_render_buffers, denoiser_resource, scene_data);
 
-			p_copy_effects.copy_depth_to_rect(denoiser_resource.depth_texture, denoiser_resource.history_depth_texture, Rect2(0, 0, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height));
-			p_copy_effects.copy_to_rect(denoiser_resource.out_diffuse_texture, denoiser_resource.history_diffuse_texture, Rect2(0, 0, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height));
-			p_copy_effects.copy_depth_to_rect(denoiser_resource.out_num_frames_accumulated_texture, denoiser_resource.history_num_frames_accumulated_texture, Rect2(0, 0, p_ssgi_buffers.size.width, p_ssgi_buffers.size.height));
+			p_copy_effects.copy_depth_to_rect(denoiser_resource.depth_texture, denoiser_resource.history_depth_texture, Rect2(0, 0, internal_size.width, internal_size.height));
+			p_copy_effects.copy_to_rect(denoiser_resource.out_diffuse_texture, denoiser_resource.history_diffuse_texture, Rect2(0, 0, internal_size.width, internal_size.height));
+			p_copy_effects.copy_depth_to_rect(denoiser_resource.out_num_frames_accumulated_texture, denoiser_resource.history_num_frames_accumulated_texture, Rect2(0, 0, internal_size.width, internal_size.height));
 		}
 	}
 }
