@@ -25,9 +25,9 @@ layout(set = 0, binding = 0, std140) uniform SceneData {
 	mat4 projection;
 	mat4 inv_projection;
 	mat4 reprojection;
-	vec4 eye_offset;
 	mat4 inv_view_matrix;
 	mat4 view_matrix;
+	vec4 eye_offset;
 }
 scene_data;
 
@@ -41,6 +41,7 @@ layout(rgba16f, set = 0, binding = 3) uniform restrict writeonly image2D out_dif
 
 layout(push_constant, std430) uniform Params {
 	ivec2 screen_size;
+	vec2 reservoir_to_screen_scale;
 	uint frame_count;
 
 	float temporal_pos_threshold;
@@ -144,7 +145,7 @@ float calculate_jacobian(vec3 receiver_position, vec3 neighbor_receiver_position
 	}
 
 	// Discard extreme re-weights that show up as fireflies
-	if (jacobian > 1.1f || jacobian < 1 / 10.0f) {
+	if (jacobian > 10.0f || jacobian < 1 / 10.0f) {
 		jacobian = 0;
 	}
 
@@ -168,7 +169,7 @@ ivec2 get_jitter_offset(uint idx) {
 #ifdef RESTIR_PIPELINE_TEMPORAL_REUSE
 void temporal_resampling(const ivec2 pixel_pos) {
 	ivec2 reservoir_coord = pixel_pos;
-	ivec2 screen_coord = ivec2(reservoir_coord * (vec2(params.screen_size) / vec2(reservoirs_setting.reservoir_size)));
+	ivec2 screen_coord = ivec2(reservoir_coord * params.reservoir_to_screen_scale);
 	screen_coord += get_jitter_offset(params.frame_count);
 	vec2 screen_uv = (vec2(screen_coord) + 0.5f) / vec2(params.screen_size);
 
@@ -189,7 +190,7 @@ void temporal_resampling(const ivec2 pixel_pos) {
 		vec3 view_normal = load_normal(screen_coord);
 
 		ivec2 screen_coord_history = ivec2(uv_history.xy * vec2(params.screen_size));
-		ivec2 reservoir_coord_history = ivec2(screen_coord_history * (vec2(reservoirs_setting.reservoir_size) / vec2(params.screen_size)));
+		ivec2 reservoir_coord_history = ivec2(screen_coord_history / params.reservoir_to_screen_scale);
 
 		// Similarity detection
 		float prev_scene_depth = imageLoad(source_history_depth, screen_coord_history).x;
@@ -217,7 +218,7 @@ void temporal_resampling(const ivec2 pixel_pos) {
 #ifdef RESTIR_PIPELINE_SPATIAL_REUSE
 void spatial_resampling(const ivec2 pixel_pos) {
 	ivec2 reservoir_coord = pixel_pos;
-	ivec2 screen_coord = ivec2(reservoir_coord * (vec2(params.screen_size) / vec2(reservoirs_setting.reservoir_size)));
+	ivec2 screen_coord = ivec2(reservoir_coord * params.reservoir_to_screen_scale);
 	screen_coord += get_jitter_offset(params.frame_count);
 	vec2 screen_uv = (vec2(screen_coord) + 0.5f) / vec2(params.screen_size);
 
@@ -245,22 +246,20 @@ void spatial_resampling(const ivec2 pixel_pos) {
 		const ivec2 reservoir_pixel_offset = ivec2(floor(reservoir_offset_float + .5f));
 
 		ivec2 neighbor_reservoir_coord = clamp(ivec2(reservoir_coord) + reservoir_pixel_offset, ivec2(0), ivec2(reservoirs_setting.reservoir_size) - 1);
-		float neighbor_scene_depth = imageLoad(source_depth, neighbor_reservoir_coord).x;
+		ivec2 neighbor_screen_coord = ivec2(neighbor_reservoir_coord * params.reservoir_to_screen_scale);
+		float neighbor_screen_depth = imageLoad(source_depth, neighbor_screen_coord).x;
 
-		if (neighbor_scene_depth > 0.0f) {
+		if (neighbor_screen_depth > 0.0f) {
 			Reservoir neighbor_reservoir = temporal_reservoirs.data[reservoir_index(neighbor_reservoir_coord, ivec2(reservoirs_setting.reservoir_size))];
 
-			uvec2 sample_screen_coord = neighbor_reservoir_coord;
-			vec2 sample_screen_uv = (sample_screen_coord + 0.5f) / params.screen_size;
-			float sample_scene_depth = neighbor_scene_depth;
-			vec3 sample_world_position = screen_to_world_pos(vec3(sample_screen_uv, sample_scene_depth));
-			vec3 neighbor_world_normal = view_to_world_normal(load_normal(neighbor_reservoir_coord));
+			vec2 neighbor_screen_uv = (vec2(neighbor_screen_coord) + 0.5f) / params.screen_size;
+			vec3 neighbor_world_position = screen_to_world_pos(vec3(neighbor_screen_uv, neighbor_screen_depth));
+			vec3 neighbor_world_normal = view_to_world_normal(load_normal(neighbor_screen_coord));
 
-			float depth_error = abs(max(0.3f, view_normal.z) * (screen_depth / neighbor_scene_depth - 1.0));
+			float depth_error = abs(max(0.3f, view_normal.z) * (screen_depth / neighbor_screen_depth - 1.0));
 			float normal_dot = dot(world_normal, neighbor_world_normal);
 
 			if (depth_error < params.resampling_depth_error_threshold && normal_dot > params.resampling_normal_dot_threshold) {
-				vec3 neighbor_world_position = sample_world_position;
 				float jacobian = calculate_jacobian(world_position, neighbor_world_position, neighbor_reservoir.hsample);
 
 				bool b_neighbor_hit_visible = true;
@@ -291,7 +290,7 @@ void spatial_resampling(const ivec2 pixel_pos) {
 #ifdef RESTIR_PIPELINE_INTEGRATE_AND_UPSAMPLE
 void integrate_and_upsample(const ivec2 pixel_pos) {
 	ivec2 screen_coord = pixel_pos;
-	vec2 screen_uv = (vec2(pixel_pos) + 0.5f) / params.screen_size;
+	vec2 screen_uv = (vec2(screen_coord) + 0.5f) / vec2(params.screen_size);
 
 	if (any(greaterThanEqual(screen_coord, params.screen_size))) {
 		return;
@@ -381,8 +380,7 @@ void integrate_and_upsample(const ivec2 pixel_pos) {
 	float resolve_variance = total_weight > 0.0f ? s / total_weight : 0.0f;
 
 #else
-	ivec2 reservoir_coord = ivec2(screen_coord) * (reservoirs_setting.reservoir_size / params.screen_size);
-	reservoir_coord = min(reservoir_coord, reservoirs_setting.reservoir_size - 1);
+	ivec2 reservoir_coord = min(ivec2(screen_coord / params.reservoir_to_screen_scale), reservoirs_setting.reservoir_size - 1);
 	Reservoir reservoir = reservoirs.data[reservoir_index(reservoir_coord, ivec2(reservoirs_setting.reservoir_size))];
 
 	vec3 diffuse_lighting = vec3(0.0f);

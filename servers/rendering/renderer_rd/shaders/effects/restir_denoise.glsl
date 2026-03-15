@@ -10,9 +10,9 @@ layout(set = 0, binding = 0, std140) uniform SceneData {
 	mat4 projection;
 	mat4 inv_projection;
 	mat4 reprojection;
-	vec4 eye_offset;
 	mat4 inv_view_matrix;
 	mat4 view_matrix;
+	vec4 eye_offset;
 } scene_data;
 
 layout(r32f, set = 0, binding = 1) uniform restrict readonly image2D source_depth_texture;
@@ -428,13 +428,12 @@ void bilateral_filter(const ivec2 pixel_pos) {
 // #endif
 		float total_weight = 1.0f;
 		float guassian_normalize = 2.0f / (kernel_radius * kernel_radius);
-		float normal_weight_normalize = 1.0f / (PI * params.bilateral_filter_normal_angle_threshold_scale);
 		uint noise_seed = random_seed(ivec3(pixel_pos, params.frame_count));
 
-		vec3 world_position = screen_to_world_pos(vec3(screen_uv, screen_depth));
+		vec3 view_position = screen_to_view_pos(vec3(screen_uv, screen_depth));
 		vec3 view_normal = load_normal(screen_coord);
-		vec3 world_normal = view_to_world_normal(view_normal);
-		vec4 scene_plane = vec4(world_normal, dot(world_position, world_normal));
+		vec4 scene_plane = vec4(view_normal, dot(view_position, view_normal));
+		float linear_depth = linearize_depth(screen_depth);
 
 		uint num_bilateral_filter_samples = min(params.bilateral_filter_num_samples * uint(mix(1.0f, 2.0f, strong_blur)), 16u);
 
@@ -451,26 +450,25 @@ void bilateral_filter(const ivec2 pixel_pos) {
 				float neighbor_screen_depth = imageLoad(source_depth_texture, neighbor_screen_coord).x;
 				if (neighbor_screen_depth > 0.0f) {
 					vec2 neighbor_screen_uv = (vec2(neighbor_screen_coord) + 0.5f) / vec2(params.screen_size);
-					vec3 neighbor_world_position = screen_to_world_pos(vec3(neighbor_screen_uv, neighbor_screen_depth));
+					vec3 neighbor_view_position = screen_to_view_pos(vec3(neighbor_screen_uv, neighbor_screen_depth));
 					vec3 neighbor_view_normal = load_normal(neighbor_screen_coord);
-					vec3 neighbor_world_normal = view_to_world_normal(neighbor_view_normal);
 
-					float plane_distance = abs(dot(vec4(neighbor_world_position, -1.0f), scene_plane));
-					float relative_depth_difference = plane_distance / linearize_depth(screen_depth);
+					float plane_distance = abs(dot(vec4(neighbor_view_position, -1.0f), scene_plane));
+					float relative_depth_difference = plane_distance / linear_depth;
 					float depth_weight = exp2(-params.bilateral_filter_depth_weight_scale * (relative_depth_difference * relative_depth_difference));
-					float spatial_weight = exp2(-guassian_normalize * dot(offset, offset));
-					float angle_between_normals = acos(clamp(dot(scene_plane.xyz, neighbor_world_normal), -1.0f, 1.0f));
-					float normal_weight = 1.0f - clamp(angle_between_normals * normal_weight_normalize, 0.0f, 1.0f);
+					float spatial_weight = exp2(-guassian_normalize * radius * radius);
+					float normal_dot = clamp(dot(scene_plane.xyz, neighbor_view_normal), -1.0f, 1.0f);
+					float normal_weight = clamp((normal_dot - params.bilateral_filter_normal_angle_threshold_scale) / 
+						(1.0f - params.bilateral_filter_normal_angle_threshold_scale), 0.0f, 1.0f);
 
 					float sample_weight = spatial_weight * depth_weight * mix(normal_weight, 1.0f, disocclusion_blur);
 					vec3 neighbor_diffuse = tonemap_lighting_for_bilateral(imageLoad(source_diffuse_texture, neighbor_screen_coord).xyz);
+					out_diffuse_indirect += neighbor_diffuse * sample_weight;
 #ifdef DENOISE_SPECULAR
 					vec3 neighbor_specular = tonemap_lighting_for_bilateral(imageLoad(source_rough_specular_texture, neighbor_screen_coord).xyz);
-
 					out_rough_specular_indirect += neighbor_specular * sample_weight;
 #endif
 
-					out_diffuse_indirect += neighbor_diffuse * sample_weight;
 					total_weight += sample_weight;
 				}
 			}
@@ -482,13 +480,11 @@ void bilateral_filter(const ivec2 pixel_pos) {
 #endif
 	}
 
-	out_diffuse_indirect = inverse_tonemap_lighting_for_bilateral(out_diffuse_indirect);
-	out_diffuse_indirect = max(out_diffuse_indirect, 0.0f);
+	out_diffuse_indirect = max(inverse_tonemap_lighting_for_bilateral(out_diffuse_indirect), 0.0f);
 	imageStore(out_diffuse_texture, screen_coord, vec4(out_diffuse_indirect, 1.0f));
 
 #ifdef DENOISE_SPECULAR
-	out_rough_specular_indirect = inverse_tonemap_lighting_for_bilateral(out_rough_specular_indirect);
-	out_rough_specular_indirect = max(out_rough_specular_indirect, 0.0f);
+	out_rough_specular_indirect = max(inverse_tonemap_lighting_for_bilateral(out_rough_specular_indirect), 0.0f);
 	imageStore(out_rough_specular_texture, screen_coord, vec4(out_rough_specular_indirect, 1.0f));
 #endif
 }

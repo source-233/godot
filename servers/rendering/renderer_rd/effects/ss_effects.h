@@ -170,7 +170,7 @@ public:
 	struct SSGIRenderBuffers {
 		Size2i size;
 		uint32_t mipmaps = 1;
-		bool half_size = false;
+		bool half_size = true;
 	};
 
 	struct SSGISettings {
@@ -552,9 +552,9 @@ private:
 		float projection[2][16];
 		float inv_projection[2][16];
 		float reprojection[2][16];
-		float eye_offset[2][4];
 		float inv_view_matrix[16];
 		float view_matrix[16];
+		float eye_offset[2][4];
 	};
 
 	struct SSGIPushConstant {

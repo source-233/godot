@@ -1885,13 +1885,6 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 
 		for (uint32_t v = 0; v < view_count; v++) {
 			ReSTIR::ReSTIRSetting restir_setting{};
-			restir_setting.temporal_pos_threshold = 0.05f;
-			restir_setting.spatial_resampling_kernel_radius = 1.0;
-			restir_setting.spatial_num_samples = 4;
-			restir_setting.spatial_resampling_pass_index = 0;
-			restir_setting.spatial_resampling_occlusion_screen_trace_distance = 10.0;
-			restir_setting.resampling_depth_error_threshold = 0.01;
-			restir_setting.resampling_normal_dot_threshold = 0.5;
 			ssgi.restir[v].set_setting(restir_setting);
 		}
 	}
@@ -2014,12 +2007,12 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			store_camera(projection, scene_data.projection);
 			store_camera(projection.inverse(), scene_data.inv_projection);
 			store_camera(p_reprojections[v], scene_data.reprojection);
+			store_camera(inv_view_matrix, scene_data.inv_view_matrix);
+			store_camera(view_matrix, scene_data.view_matrix);
 			scene_data.eye_offset[0] = p_eye_offsets[v].x;
 			scene_data.eye_offset[1] = p_eye_offsets[v].y;
 			scene_data.eye_offset[2] = p_eye_offsets[v].z;
 			scene_data.eye_offset[3] = 0.0f;
-			store_camera(inv_view_matrix, scene_data.inv_view_matrix);
-			store_camera(view_matrix, scene_data.view_matrix);
 
 			ReSTIR::ReSTIRResource restir_resource;
 			restir_resource.normal_roughness_texture = p_normal_roughness_slices[v];
@@ -2043,7 +2036,7 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			ssgi.restir[v].process_denoise(p_render_buffers, denoiser_resource, scene_data);
 
 			p_copy_effects.copy_depth_to_rect(denoiser_resource.depth_texture, denoiser_resource.history_depth_texture, Rect2(0, 0, internal_size.width, internal_size.height));
-			p_copy_effects.copy_to_rect(denoiser_resource.out_diffuse_texture, denoiser_resource.history_diffuse_texture, Rect2(0, 0, internal_size.width, internal_size.height));
+			p_copy_effects.copy_to_rect(denoiser_resource.diffuse_texture, denoiser_resource.history_diffuse_texture, Rect2(0, 0, internal_size.width, internal_size.height));
 			p_copy_effects.copy_depth_to_rect(denoiser_resource.out_num_frames_accumulated_texture, denoiser_resource.history_num_frames_accumulated_texture, Rect2(0, 0, internal_size.width, internal_size.height));
 		}
 	}

@@ -50,20 +50,20 @@ public:
 		float projection[16];
 		float inv_projection[16];
 		float reprojection[16];
-		float eye_offset[4];
 		float inv_view_matrix[16];
 		float view_matrix[16];
+		float eye_offset[4];
 	};
 
 	struct ReSTIRSetting {
 		float temporal_pos_threshold = 0.05f;
-		float spatial_resampling_kernel_radius = 1.0f;
+		float spatial_resampling_kernel_radius = 0.01f;
 		uint32_t spatial_num_samples = 4;
 		uint32_t spatial_resampling_pass_index = 0;
 		float spatial_resampling_occlusion_screen_trace_distance = 10.0f;
 
 		float resampling_depth_error_threshold = 0.01f;
-		float resampling_normal_dot_threshold = 0.5f;
+		float resampling_normal_dot_threshold = 0.2f;
 	};
 	void set_setting(ReSTIRSetting &setting);
 
@@ -80,7 +80,7 @@ public:
 		float max_frames_accumulated = 16.0f;
 		float history_distance_threshold = 0.5f;
 		float bilateral_filter_spatial_kernel_radius = 0.01f;
-		uint32_t bilateral_filter_num_samples = 16u;
+		uint32_t bilateral_filter_num_samples = 8u;
 		float bilateral_filter_depth_weight_scale = 10.0f;
 		float bilateral_filter_normal_angle_threshold_scale = 0.5f;
 		float bilateral_filter_strong_blur_variance_threshold = 0.05f;
@@ -135,6 +135,7 @@ private:
 
 	struct ReSTIRPushConstant {
 		int32_t screen_size[2];
+		float reservoir_to_screen_scale[2];
 		uint32_t frame_count;
 
 		float temporal_pos_threshold;

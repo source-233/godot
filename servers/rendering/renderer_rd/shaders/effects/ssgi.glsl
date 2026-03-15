@@ -10,9 +10,9 @@ layout(set = 0, binding = 0, std140) uniform SceneData {
 	mat4 projection[2];
 	mat4 inv_projection[2];
 	mat4 reprojection[2];
-	vec4 eye_offset[2];
 	mat4 inv_view_matrix;
 	mat4 view_matrix;
+	vec4 eye_offset[2];
 }
 scene_data;
 
