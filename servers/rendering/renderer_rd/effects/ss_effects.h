@@ -44,6 +44,7 @@
 #include "servers/rendering/renderer_rd/shaders/effects/ssao_interleave.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssgi.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssgi_resolve.glsl.gen.h"
+#include "servers/rendering/renderer_rd/shaders/effects/ssgi_sdftrace.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssil.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssil_blur.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/effects/ssil_importance_map.glsl.gen.h"
@@ -77,7 +78,6 @@
 #define RB_HISTORY_HIZ SNAME("history_hiz")
 #define RB_NUM_FRAMES_ACCUMULATED SNAME("num_frames_accumulated")
 #define RB_HISTORY_NUM_FRAMES_ACCUMULATED SNAME("history_num_frames_accumulated")
-
 
 class RenderSceneBuffersRD;
 
@@ -568,6 +568,18 @@ private:
 		uint32_t frame_count;
 	};
 
+	struct SSGISdftracePushConstant {
+		int32_t screen_size[2];
+		int32_t compute_size[2];
+		float intensity;
+		int view_index;
+		uint32_t frame_count;
+
+		int32_t pad;
+		float grid_size[3];
+		uint32_t max_cascades;
+	};
+
 	struct SSGI {
 		ScreenSpaceReflectionHizShaderRD hiz_shader;
 		RID hiz_shader_version;
@@ -578,9 +590,9 @@ private:
 		PipelineDeferredRD ssgi_pipeline;
 		RID ubo;
 
-		SsgiResolveShaderRD resolve_shader;
-		RID resolve_shader_version;
-		PipelineDeferredRD resolve_pipeline;
+		SsgiSdftraceShaderRD sdftrace_shader;
+		RID sdftrace_shader_version;
+		PipelineDeferredRD sdftrace_pipeline;
 
 		ReSTIR restir[2];
 	} ssgi;

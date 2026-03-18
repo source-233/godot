@@ -27,15 +27,15 @@ layout(rgba16f, set = 0, binding = 7) uniform restrict readonly image2D history_
 layout(rgba16f, set = 0, binding = 8) uniform restrict writeonly image2D out_diffuse_texture;
 
 #ifdef DENOISE_SPECULAR
-layout(rgba16f, set = 0, binding = 8) uniform restrict readonly image2D source_rough_specular_texture;
-layout(rgba16f, set = 0, binding = 9) uniform restrict readonly image2D history_rough_specular_texture;
-layout(rgba16f, set = 0, binding = 10) uniform restrict writeonly image2D out_rough_specular_texture;
+layout(rgba16f, set = 0, binding = 9) uniform restrict readonly image2D source_rough_specular_texture;
+layout(rgba16f, set = 0, binding = 10) uniform restrict readonly image2D history_rough_specular_texture;
+layout(rgba16f, set = 0, binding = 11) uniform restrict writeonly image2D out_rough_specular_texture;
 #endif
 
 #ifdef DENOISE_VARIANCE
-layout(r32f, set = 0, binding = 10) uniform restrict readonly image2D source_resolve_variance_texture;
-layout(r32f, set = 0, binding = 11) uniform restrict readonly image2D history_resolve_variance_texture;
-layout(r32f, set = 0, binding = 12) uniform restrict writeonly image2D out_resolve_variance_texture;
+layout(r32f, set = 0, binding = 12) uniform restrict readonly image2D source_resolve_variance_texture;
+layout(r32f, set = 0, binding = 13) uniform restrict readonly image2D history_resolve_variance_texture;
+layout(r32f, set = 0, binding = 14) uniform restrict writeonly image2D out_resolve_variance_texture;
 #endif
 
 
@@ -187,7 +187,7 @@ vec3 inverse_tonemap_lighting_for_bilateral(vec3 tonemapped_lighting) {
 #ifdef DENOISER_PIPELINE_TEMPORAL_ACCUMULATION
 void temporal_accumulation(const ivec2 pixel_pos) {
 	ivec2 screen_coord = pixel_pos;
-	vec2 screen_uv = (vec2(pixel_pos) + 0.5f) / vec2(params.screen_size);
+	vec2 screen_uv = vec2(pixel_pos + 0.5f) / vec2(params.screen_size);
 
 	if (any(greaterThanEqual(screen_coord, params.screen_size))) {
 		return;

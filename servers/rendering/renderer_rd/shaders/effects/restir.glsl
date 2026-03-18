@@ -171,7 +171,7 @@ void temporal_resampling(const ivec2 pixel_pos) {
 	ivec2 reservoir_coord = pixel_pos;
 	ivec2 screen_coord = ivec2(reservoir_coord * params.reservoir_to_screen_scale);
 	screen_coord += get_jitter_offset(params.frame_count);
-	vec2 screen_uv = (vec2(screen_coord) + 0.5f) / vec2(params.screen_size);
+	vec2 screen_uv = vec2(screen_coord + 0.5f) / vec2(params.screen_size);
 
 	const float screen_depth = imageLoad(source_depth, screen_coord).x;
 

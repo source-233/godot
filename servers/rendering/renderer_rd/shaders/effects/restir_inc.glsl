@@ -4,7 +4,7 @@ struct HitSample {
 	vec3 hit_normal;
 	float pdf;
 	vec3 out_radiance;
-	float validity; // 样本有效性
+	float proposal_pdf; // 样本有效性
 };
 
 struct Reservoir {
@@ -27,7 +27,7 @@ void clean_reservoir(inout Reservoir self) {
 	self.hsample.hit_normal = vec3(0.0f);
 	self.hsample.out_radiance = vec3(0.0f);
 	self.hsample.pdf = 0.0f;
-	self.hsample.validity = 0.0f;
+	self.hsample.proposal_pdf = 0.0f;
 
 	self.weight_sum = 0.0f;
 	self.weight = 0.0f;

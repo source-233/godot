@@ -108,6 +108,10 @@ vec3 view_to_world_normal(vec3 normal) {
     return world_normal;
 }
 
+vec3 screen_to_world_pos(vec3 screen_pos) {
+	return view_to_world_pos(screen_to_view_pos(screen_pos));
+}
+
 // https://www.reedbeta.com/blog/hash-functions-for-gpu-rendering/
 uint hash(uint value) {
 	uint state = value * 747796405u + 2891336453u;
@@ -170,10 +174,11 @@ ivec2 get_jitter_offset(uint idx) {
 }
 
 void main() {
-	ivec2 pixel_pos = ivec2(gl_GlobalInvocationID.xy) * (params.screen_size / params.compute_size);
-	pixel_pos += get_jitter_offset(params.frame_count);
+	ivec2 pixel_pos = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 screen_coord = pixel_pos * (params.screen_size / params.compute_size);
+	screen_coord += get_jitter_offset(params.frame_count);
 
-	if (any(greaterThanEqual(pixel_pos, params.screen_size))) {
+	if (any(greaterThanEqual(screen_coord, params.screen_size))) {
 		return;
 	}
 
@@ -181,14 +186,14 @@ void main() {
 	float mip_level = 0.0;
 
 	vec3 screen_pos;
-	screen_pos.xy = vec2(pixel_pos + 0.5) / params.screen_size;
-	screen_pos.z = texelFetch(source_hiz, pixel_pos, 0).x;
+	screen_pos.xy = vec2(screen_coord + 0.5) / params.screen_size;
+	screen_pos.z = texelFetch(source_hiz, screen_coord, 0).x;
 
 	bool should_trace = screen_pos.z != 0.0;
 	if (should_trace) {
 		vec3 pos = screen_to_view_pos(screen_pos);
 
-		vec4 normal_roughness = texelFetch(source_normal_roughness, pixel_pos, 0);
+		vec4 normal_roughness = texelFetch(source_normal_roughness, screen_coord, 0);
 		vec3 normal = normalize(normal_roughness.xyz * 2.0 - 1.0);
 		float roughness = normal_roughness.w;
 		if (roughness > 0.5) {
@@ -196,13 +201,13 @@ void main() {
 		}
 		roughness /= (127.0 / 255.0);
 
-		vec3 geom_normal = normalize(compute_geometric_normal(pixel_pos, screen_pos.z, pos, 0.5));
+		vec3 geom_normal = normalize(compute_geometric_normal(screen_coord, screen_pos.z, pos, 0.5));
 
 		// Add a small bias towards the geometry normal to prevent self intersections.
 		pos += geom_normal * (1.0 - pow(clamp(dot(normal, geom_normal), 0.0, 1.0), 8.0));
 		screen_pos = view_to_screen_pos(pos);
 
-		uint noise_seed = random_seed(ivec3(pixel_pos, params.frame_count));
+		uint noise_seed = random_seed(ivec3(screen_coord, params.frame_count));
 		vec4 ray_dir = generate_ray_dir_from_normal(normal, noise_seed);
 
 		// Check if the ray is immediately intersecting with itself. If so, bounce!
@@ -308,9 +313,10 @@ void main() {
 		vec3 hit_normal = texelFetch(source_normal_roughness, cur_pixel_pos, 0).xyz * 2.0 - 1.0;
 
 		if (all(lessThan(abs(screen_ray_dir.xy * t), 2.0 / params.screen_size))) {
-			if (dot(ray_dir.xyz, hit_normal) >= 0.0) {
-				validity = 0.0;
-			}
+			validity = 0.0;
+		}
+		if (dot(ray_dir.xyz, hit_normal) >= 0.0) {
+			validity = 0.0;
 		}
 
 		vec3 cur_pos = screen_to_view_pos(cur_screen_pos);
@@ -330,14 +336,15 @@ void main() {
 		hit_sample.hit_normal = view_to_world_normal(hit_normal);
 		hit_sample.out_radiance = color.rgb * params.intensity;
 		hit_sample.pdf = luminance(color.rgb) * validity;
-		hit_sample.validity = validity;
+		hit_sample.proposal_pdf = ray_dir.w;
 
 		Reservoir reservoir = new_reservoir();
 		add_sample_to_reservoir(reservoir, hit_sample, ray_dir.w, random_float(noise_seed));
 
 		reservoirs.data[reservoir_index(ivec2(gl_GlobalInvocationID.xy).xy, params.compute_size)] = reservoir;
 
-		color = vec4(reprojected_pos.z, 0.0, cur_screen_pos.z, screen_pos.z);
+		color = vec4(hit_sample.ray_direction.xyz, ray_dir.w);
+		// color = vec4(view_to_world_pos(pos), ray_dir.w);
 	} else {
 		Reservoir reservoir = new_reservoir();
 		reservoirs.data[reservoir_index(ivec2(gl_GlobalInvocationID.xy).xy, params.compute_size)] = reservoir;

@@ -36,6 +36,7 @@
 #include "servers/rendering/renderer_rd/storage_rd/material_storage.h"
 #include "servers/rendering/renderer_rd/storage_rd/render_scene_buffers_rd.h"
 #include "servers/rendering/renderer_rd/uniform_set_cache_rd.h"
+#include "servers/rendering/renderer_rd/environment/gi.h"
 
 using namespace RendererRD;
 
@@ -372,13 +373,14 @@ SSEffects::SSEffects() {
 		}
 
 		{
-			Vector<String> ssgi_resolve_modes;
-			ssgi_resolve_modes.push_back("\n");
+			Vector<String> ssgi_sdftrace_modes;
+			ssgi_sdftrace_modes.push_back("\n");
+			String defines = "\n#define RESTIR_UNIFORM_SET " + itos(RESTIR_UNIFORM_SET) + "\n";
 
-			ssgi.resolve_shader.initialize(ssgi_resolve_modes);
-			ssgi.resolve_shader_version = ssgi.resolve_shader.version_create();
+			ssgi.sdftrace_shader.initialize(ssgi_sdftrace_modes, defines);
+			ssgi.sdftrace_shader_version = ssgi.sdftrace_shader.version_create();
 
-			ssgi.resolve_pipeline.create_compute_pipeline(ssgi.resolve_shader.version_get_shader(ssgi.resolve_shader_version, 0));
+			ssgi.sdftrace_pipeline.create_compute_pipeline(ssgi.sdftrace_shader.version_get_shader(ssgi.sdftrace_shader_version, 0));
 		}
 	}
 
@@ -490,11 +492,11 @@ SSEffects::~SSEffects() {
 			ssgi.hiz_pipelines[i].free();
 		}
 		ssgi.ssgi_pipeline.free();
-		ssgi.resolve_pipeline.free();
+		ssgi.sdftrace_pipeline.free();
 
 		ssgi.hiz_shader.version_free(ssgi.hiz_shader_version);
 		ssgi.ssgi_shader.version_free(ssgi.ssgi_shader_version);
-		ssgi.resolve_shader.version_free(ssgi.resolve_shader_version);
+		ssgi.sdftrace_shader.version_free(ssgi.sdftrace_shader_version);
 
 		if (ssgi.ubo.is_valid()) {
 			RD::get_singleton()->free_rid(ssgi.ubo);
@@ -1849,6 +1851,8 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 	ERR_FAIL_NULL(uniform_set_cache);
 	MaterialStorage *material_storage = MaterialStorage::get_singleton();
 	ERR_FAIL_NULL(material_storage);
+	TextureStorage *texture_storage = TextureStorage::get_singleton();
+	ERR_FAIL_NULL(texture_storage);
 
 	Vector2i internal_size = p_render_buffers->get_internal_size();
 	uint32_t view_count = p_render_buffers->get_view_count();
@@ -1997,6 +2001,146 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 	}
 
 	{
+		Ref<RendererRD::GI::SDFGI> sdfgi = p_render_buffers->get_custom_data(RB_SCOPE_SDFGI);
+		RD::get_singleton()->draw_command_begin_label("SSGI SDF Trace");
+
+		RID sdftrace_shader = ssgi.sdftrace_shader.version_get_shader(ssgi.sdftrace_shader_version, 0);
+
+		for (uint32_t v = 0; v < view_count; v++) {
+			RD::ComputeListID compute_list = RD::get_singleton()->compute_list_begin();
+
+			RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, ssgi.sdftrace_pipeline.get_rid());
+
+			SSGISdftracePushConstant push_constant{};
+			push_constant.screen_size[0] = internal_size.width;
+			push_constant.screen_size[1] = internal_size.height;
+			push_constant.compute_size[0] = p_ssgi_buffers.size.width;
+			push_constant.compute_size[1] = p_ssgi_buffers.size.height;
+			push_constant.intensity = p_settings.intensity;
+			push_constant.view_index = v;
+			push_constant.frame_count = RSG::rasterizer->get_frame_number();
+
+			push_constant.grid_size[0] = sdfgi->cascade_size;
+			push_constant.grid_size[1] = sdfgi->cascade_size;
+			push_constant.grid_size[2] = sdfgi->cascade_size;
+			push_constant.grid_size[3] = sdfgi->cascade_size;
+			push_constant.max_cascades = sdfgi->cascades.size();
+
+			RID hiz_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0, 1, p_ssgi_buffers.mipmaps);
+			RID ssgi_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_SSGI, v, 0);
+
+			LocalVector<RD::Uniform> uniforms;
+
+			{	
+				RD::Uniform u_scene_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 0, ssgi.ubo);
+				uniforms.push_back(u_scene_data);
+			}
+
+			{
+				RD::Uniform u;
+				u.binding = 1;
+				u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
+				for (uint32_t i = 0; i < GI::SDFGI::MAX_CASCADES; i++) {
+					if (i < sdfgi->cascades.size()) {
+						u.append_id(sdfgi->cascades[i].sdf_tex);
+					} else {
+						u.append_id(texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_3D_WHITE));
+					}
+				}
+				uniforms.push_back(u);
+			}
+			{
+				RD::Uniform u;
+				u.binding = 2;
+				u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
+				for (uint32_t i = 0; i < GI::SDFGI::MAX_CASCADES; i++) {
+					if (i < sdfgi->cascades.size()) {
+						u.append_id(sdfgi->cascades[i].light_tex);
+					} else {
+						u.append_id(texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_3D_WHITE));
+					}
+				}
+				uniforms.push_back(u);
+			}
+			{
+				RD::Uniform u;
+				u.binding = 3;
+				u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
+				for (uint32_t i = 0; i < GI::SDFGI::MAX_CASCADES; i++) {
+					if (i < sdfgi->cascades.size()) {
+						u.append_id(sdfgi->cascades[i].light_aniso_0_tex);
+					} else {
+						u.append_id(texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_3D_WHITE));
+					}
+				}
+				uniforms.push_back(u);
+			}
+			{
+				RD::Uniform u;
+				u.binding = 4;
+				u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
+				for (uint32_t i = 0; i < GI::SDFGI::MAX_CASCADES; i++) {
+					if (i < sdfgi->cascades.size()) {
+						u.append_id(sdfgi->cascades[i].light_aniso_1_tex);
+					} else {
+						u.append_id(texture_storage->texture_rd_get_default(RendererRD::TextureStorage::DEFAULT_RD_TEXTURE_3D_WHITE));
+					}
+				}
+				uniforms.push_back(u);
+			}
+			{
+				RD::Uniform u;
+				u.binding = 5;
+				u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
+				u.append_id(sdfgi->occlusion_texture);
+				uniforms.push_back(u);
+			}
+			{
+				RD::Uniform u;
+				u.binding = 7;
+				u.uniform_type = RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE;
+				u.append_id(nearest_sampler);
+				u.append_id(hiz_texture);
+				uniforms.push_back(u);
+			}
+			{
+				RD::Uniform u;
+				u.binding = 8;
+				u.uniform_type = RD::UNIFORM_TYPE_SAMPLER;
+				u.append_id(linear_sampler);
+				uniforms.push_back(u);
+			}
+			{
+				RD::Uniform u;
+				u.binding = 9;
+				u.uniform_type = RD::UNIFORM_TYPE_UNIFORM_BUFFER;
+				u.append_id(sdfgi->cascades_ubo);
+				uniforms.push_back(u);
+			}
+			{
+				RD::Uniform u;
+				u.binding = 10;
+				u.uniform_type = RD::UNIFORM_TYPE_IMAGE;
+				u.append_id(ssgi_texture);
+				uniforms.push_back(u);
+			}
+			RID sdftrace_uniform_set = uniform_set_cache->get_cache_vec(sdftrace_shader, 0, uniforms);
+
+			RID restir_uniform_set = ssgi.restir[v].init_restir_uniform_set(sdftrace_shader, RESTIR_UNIFORM_SET);
+
+			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, sdftrace_uniform_set, 0);
+			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, restir_uniform_set, RESTIR_UNIFORM_SET);
+			RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(push_constant));
+			RD::get_singleton()->compute_list_dispatch_threads(compute_list, push_constant.compute_size[0], push_constant.compute_size[1], 1);
+
+			RD::get_singleton()->compute_list_end();
+		}
+
+		RD::get_singleton()->draw_command_end_label();
+	}
+
+	{
+		RENDER_TIMESTAMP("Process Restir");
 		Projection correction;
 		correction.set_depth_correction(true);
 
@@ -2036,7 +2180,7 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			ssgi.restir[v].process_denoise(p_render_buffers, denoiser_resource, scene_data);
 
 			p_copy_effects.copy_depth_to_rect(denoiser_resource.depth_texture, denoiser_resource.history_depth_texture, Rect2(0, 0, internal_size.width, internal_size.height));
-			p_copy_effects.copy_to_rect(denoiser_resource.diffuse_texture, denoiser_resource.history_diffuse_texture, Rect2(0, 0, internal_size.width, internal_size.height));
+			p_copy_effects.copy_to_rect(denoiser_resource.out_diffuse_texture, denoiser_resource.history_diffuse_texture, Rect2(0, 0, internal_size.width, internal_size.height));
 			p_copy_effects.copy_depth_to_rect(denoiser_resource.out_num_frames_accumulated_texture, denoiser_resource.history_num_frames_accumulated_texture, Rect2(0, 0, internal_size.width, internal_size.height));
 		}
 	}

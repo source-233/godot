@@ -470,6 +470,8 @@ void Environment::_update_ssil() {
 void Environment::set_ssgi_enabled(bool p_enabled) {
 	ssgi_enabled = p_enabled;
 	_update_ssgi();
+	sdfgi_enabled = p_enabled;
+	_update_sdfgi();
 }
 
 bool Environment::is_ssgi_enabled() const {
@@ -517,6 +519,8 @@ void Environment::_update_ssgi() {
 void Environment::set_sdfgi_enabled(bool p_enabled) {
 	sdfgi_enabled = p_enabled;
 	_update_sdfgi();
+	ssgi_enabled = p_enabled;
+	_update_ssgi();
 }
 
 bool Environment::is_sdfgi_enabled() const {
