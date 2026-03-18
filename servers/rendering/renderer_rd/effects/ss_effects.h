@@ -575,7 +575,7 @@ private:
 		int view_index;
 		uint32_t frame_count;
 
-		int32_t pad;
+		float y_mult;
 		float grid_size[3];
 		uint32_t max_cascades;
 	};

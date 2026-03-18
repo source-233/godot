@@ -22,14 +22,12 @@ layout(rgba8, set = 0, binding = 3) uniform restrict readonly image2D source_nor
 layout(r32f, set = 0, binding = 4) uniform restrict readonly image2D history_num_frames_accumulated_texture;
 layout(r32f, set = 0, binding = 5) uniform restrict writeonly image2D out_num_frames_accumulated_texture;
 
-layout(rgba16f, set = 0, binding = 6) uniform restrict readonly image2D source_diffuse_texture;
+layout(rgba16f, set = 0, binding = 6) uniform restrict image2D diffuse_texture;
 layout(rgba16f, set = 0, binding = 7) uniform restrict readonly image2D history_diffuse_texture;
-layout(rgba16f, set = 0, binding = 8) uniform restrict writeonly image2D out_diffuse_texture;
 
 #ifdef DENOISE_SPECULAR
-layout(rgba16f, set = 0, binding = 9) uniform restrict readonly image2D source_rough_specular_texture;
+layout(rgba16f, set = 0, binding = 9) uniform restrict image2D rough_specular_texture;
 layout(rgba16f, set = 0, binding = 10) uniform restrict readonly image2D history_rough_specular_texture;
-layout(rgba16f, set = 0, binding = 11) uniform restrict writeonly image2D out_rough_specular_texture;
 #endif
 
 #ifdef DENOISE_VARIANCE
@@ -251,7 +249,7 @@ void temporal_accumulation(const ivec2 pixel_pos) {
 	vec4 visibility_weights = clamp(vec4(b_history_was_onscreen ? 1.0f : 0.0f) * occlusion_weights, 0.0f, 1.0f);
 	vec4 final_weights = get_bilinear_custom_weights(bilinear_filter_at_history_screen_uv, visibility_weights);
 
-	vec3 new_diffuse_lighting = imageLoad(source_diffuse_texture, screen_coord).xyz;
+	vec3 new_diffuse_lighting = imageLoad(diffuse_texture, screen_coord).xyz;
 
 	// Sample history
 	vec3 history_diffuse_indirect00 = imageLoad(history_diffuse_texture, ivec2(history_gather.uv00 * params.screen_size)).xyz;
@@ -316,7 +314,7 @@ void temporal_accumulation(const ivec2 pixel_pos) {
 			ivec2 neighbor_screen_coord = screen_coord + sample_offset;
 			neighbor_screen_coord = clamp(neighbor_screen_coord, min_screen_coord, max_screen_coord);
 
-			const vec3 lighting = imageLoad(source_diffuse_texture, neighbor_screen_coord).xyz;
+			const vec3 lighting = imageLoad(diffuse_texture, neighbor_screen_coord).xyz;
 			neighbor_min = min(neighbor_min, lighting.xyz);
 			neighbor_max = max(neighbor_max, lighting.xyz);
 		}
@@ -357,7 +355,7 @@ void temporal_accumulation(const ivec2 pixel_pos) {
 #endif
 
 	// Write outputs
-	imageStore(out_diffuse_texture, screen_coord, vec4(out_diffuse_indirect, 1.0f));
+	imageStore(diffuse_texture, screen_coord, vec4(out_diffuse_indirect, 1.0f));
 #ifdef DENOISE_SPECULAR
 	imageStore(out_rough_specular_texture, screen_coord, vec4(out_rough_specular_indirect, 1.0f));
 #endif
@@ -398,7 +396,7 @@ void bilateral_filter(const ivec2 pixel_pos) {
 		return;
 	}
 
-	vec3 out_diffuse_indirect = imageLoad(source_diffuse_texture, screen_coord).xyz;
+	vec3 out_diffuse_indirect = imageLoad(diffuse_texture, screen_coord).xyz;
 	// Apply tonemapping for bilateral filter
 	out_diffuse_indirect = tonemap_lighting_for_bilateral(out_diffuse_indirect);
 
@@ -462,7 +460,7 @@ void bilateral_filter(const ivec2 pixel_pos) {
 						(1.0f - params.bilateral_filter_normal_angle_threshold_scale), 0.0f, 1.0f);
 
 					float sample_weight = spatial_weight * depth_weight * mix(normal_weight, 1.0f, disocclusion_blur);
-					vec3 neighbor_diffuse = tonemap_lighting_for_bilateral(imageLoad(source_diffuse_texture, neighbor_screen_coord).xyz);
+					vec3 neighbor_diffuse = tonemap_lighting_for_bilateral(imageLoad(diffuse_texture, neighbor_screen_coord).xyz);
 					out_diffuse_indirect += neighbor_diffuse * sample_weight;
 #ifdef DENOISE_SPECULAR
 					vec3 neighbor_specular = tonemap_lighting_for_bilateral(imageLoad(source_rough_specular_texture, neighbor_screen_coord).xyz);
@@ -481,7 +479,7 @@ void bilateral_filter(const ivec2 pixel_pos) {
 	}
 
 	out_diffuse_indirect = max(inverse_tonemap_lighting_for_bilateral(out_diffuse_indirect), 0.0f);
-	imageStore(out_diffuse_texture, screen_coord, vec4(out_diffuse_indirect, 1.0f));
+	imageStore(diffuse_texture, screen_coord, vec4(out_diffuse_indirect, 1.0f));
 
 #ifdef DENOISE_SPECULAR
 	out_rough_specular_indirect = max(inverse_tonemap_lighting_for_bilateral(out_rough_specular_indirect), 0.0f);

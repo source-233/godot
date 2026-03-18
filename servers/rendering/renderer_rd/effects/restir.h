@@ -96,7 +96,6 @@ public:
 		RID out_num_frames_accumulated_texture;
 		RID diffuse_texture;
 		RID history_diffuse_texture;
-		RID out_diffuse_texture;
 	};
 	void process_denoise(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRDenoiserResource &p_denoiser_resource, const SceneData &p_scene_data);
 

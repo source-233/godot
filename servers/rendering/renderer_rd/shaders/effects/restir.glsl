@@ -401,8 +401,8 @@ void integrate_and_upsample(const ivec2 pixel_pos) {
 	rw_resolve_variance[screen_coord] = resolve_variance;
 #endif
 }
-#endif
-#endif
+#endif // RESTIR_PIPELINE_INTEGRATE_AND_UPSAMPLE
+#endif // RESTIR_PIPELINE_TEMPORAL_CLEAR
 
 void main() {
 	const ivec2 pixel_pos = ivec2(gl_GlobalInvocationID.xy);

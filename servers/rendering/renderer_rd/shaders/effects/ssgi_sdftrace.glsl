@@ -49,7 +49,7 @@ layout(push_constant, std430) uniform Params {
 	int view_index;
 	uint frame_count;
 
-	int pad;
+	float y_mult;
 	vec3 grid_size;
 	uint max_cascades;
 }
@@ -148,7 +148,7 @@ void main() {
 
 	//this is how to properly bias outgoing rays
 	float cell_size = 1.0 / cascades.data[0].to_cell;
-	ray_pos += sign(ray_dir) * cell_size * 0.48; // go almost to the box edge but remain inside
+	ray_pos += sign(ray_dir) * cell_size; // go almost to the box edge but remain inside
 	ray_pos += ray_dir * 0.4 * cell_size; //apply a small bias from there
 
 	vec3 hit_normal = vec3(0.0);
@@ -161,6 +161,10 @@ void main() {
 	vec3 pos_to_uvw = 1.0 / params.grid_size;
 	vec3 val = vec3(0.0);
 
+	ray_pos.y *= params.y_mult;
+	ray_dir.y *= params.y_mult;
+	ray_dir = normalize(ray_dir);
+
 	// Generate noise seed
 	uint noise_seed = random_seed(ivec3(screen_coord, params.frame_count));
 
@@ -170,6 +174,10 @@ void main() {
 		pos *= cascades.data[j].to_cell;
 
 		if (any(lessThan(pos, vec3(0.0))) || any(greaterThanEqual(pos, params.grid_size))) {
+			//this is how to properly bias outgoing rays
+			float cell_size = 1.0 / cascades.data[j].to_cell;
+			ray_pos += sign(ray_dir) * cell_size; // go almost to the box edge but remain inside
+			ray_pos += ray_dir * 0.4 * cell_size; //apply a small bias from there
 			continue; //already past bounds for this cascade, goto next
 		}
 

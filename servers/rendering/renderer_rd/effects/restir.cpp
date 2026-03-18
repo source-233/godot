@@ -301,11 +301,10 @@ void ReSTIR::process_denoise(Ref<RenderSceneBuffersRD> p_render_buffers, const R
 		RD::Uniform u_normal_roughness(RD::UNIFORM_TYPE_IMAGE, 3, p_denoiser_resource.normal_roughness_texture);
 		RD::Uniform u_history_num_frames_accumulated(RD::UNIFORM_TYPE_IMAGE, 4, p_denoiser_resource.history_num_frames_accumulated_texture);
 		RD::Uniform u_out_num_frames_accumulated(RD::UNIFORM_TYPE_IMAGE, 5, p_denoiser_resource.out_num_frames_accumulated_texture);
-		RD::Uniform u_diffuse_indirect(RD::UNIFORM_TYPE_IMAGE, 6, p_denoiser_resource.out_diffuse_texture);
+		RD::Uniform u_diffuse_indirect(RD::UNIFORM_TYPE_IMAGE, 6, p_denoiser_resource.diffuse_texture);
 		RD::Uniform u_history_diffuse_indirect(RD::UNIFORM_TYPE_IMAGE, 7, p_denoiser_resource.history_diffuse_texture);
-		RD::Uniform u_out_diffuse_indirect(RD::UNIFORM_TYPE_IMAGE, 8, p_denoiser_resource.diffuse_texture);
 
-		RID uniform_set = uniform_set_cache->get_cache(shader, 0, u_scene_data, u_depth, u_history_depth, u_normal_roughness, u_history_num_frames_accumulated, u_out_num_frames_accumulated, u_diffuse_indirect, u_history_diffuse_indirect, u_out_diffuse_indirect);
+		RID uniform_set = uniform_set_cache->get_cache(shader, 0, u_scene_data, u_depth, u_history_depth, u_normal_roughness, u_history_num_frames_accumulated, u_out_num_frames_accumulated, u_diffuse_indirect, u_history_diffuse_indirect);
 
 		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, denoiser_pipelines[mode].get_rid());
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set, 0);
@@ -334,9 +333,8 @@ void ReSTIR::process_denoise(Ref<RenderSceneBuffersRD> p_render_buffers, const R
 		RD::Uniform u_out_num_frames_accumulated(RD::UNIFORM_TYPE_IMAGE, 5, p_denoiser_resource.out_num_frames_accumulated_texture);
 		RD::Uniform u_diffuse_indirect(RD::UNIFORM_TYPE_IMAGE, 6, p_denoiser_resource.diffuse_texture);
 		RD::Uniform u_history_diffuse_indirect(RD::UNIFORM_TYPE_IMAGE, 7, p_denoiser_resource.history_diffuse_texture);
-		RD::Uniform u_out_diffuse_indirect(RD::UNIFORM_TYPE_IMAGE, 8, p_denoiser_resource.out_diffuse_texture);
 
-		RID uniform_set = uniform_set_cache->get_cache(shader, 0, u_scene_data, u_depth, u_history_depth, u_normal_roughness, u_history_num_frames_accumulated, u_out_num_frames_accumulated, u_diffuse_indirect, u_history_diffuse_indirect, u_out_diffuse_indirect);
+		RID uniform_set = uniform_set_cache->get_cache(shader, 0, u_scene_data, u_depth, u_history_depth, u_normal_roughness, u_history_num_frames_accumulated, u_out_num_frames_accumulated, u_diffuse_indirect, u_history_diffuse_indirect);
 
 		RD::get_singleton()->compute_list_bind_compute_pipeline(compute_list, denoiser_pipelines[mode].get_rid());
 		RD::get_singleton()->compute_list_bind_uniform_set(compute_list, uniform_set, 0);

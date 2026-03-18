@@ -2020,10 +2020,10 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			push_constant.view_index = v;
 			push_constant.frame_count = RSG::rasterizer->get_frame_number();
 
+			push_constant.y_mult = sdfgi->y_mult;
 			push_constant.grid_size[0] = sdfgi->cascade_size;
 			push_constant.grid_size[1] = sdfgi->cascade_size;
 			push_constant.grid_size[2] = sdfgi->cascade_size;
-			push_constant.grid_size[3] = sdfgi->cascade_size;
 			push_constant.max_cascades = sdfgi->cascades.size();
 
 			RID hiz_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HIZ, v, 0, 1, p_ssgi_buffers.mipmaps);
@@ -2173,14 +2173,13 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 			denoiser_resource.history_depth_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY_HIZ, v, 0);
 			denoiser_resource.history_num_frames_accumulated_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY_NUM_FRAMES_ACCUMULATED, v, 0);
 			denoiser_resource.out_num_frames_accumulated_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_NUM_FRAMES_ACCUMULATED, v, 0);
-			denoiser_resource.diffuse_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_SSGI, v, 0);
+			denoiser_resource.diffuse_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_FINAL, v, 0);
 			denoiser_resource.history_diffuse_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_HISTORY, v, 0);
-			denoiser_resource.out_diffuse_texture = p_render_buffers->get_texture_slice(RB_SCOPE_SSGI, RB_FINAL, v, 0);
 
 			ssgi.restir[v].process_denoise(p_render_buffers, denoiser_resource, scene_data);
 
 			p_copy_effects.copy_depth_to_rect(denoiser_resource.depth_texture, denoiser_resource.history_depth_texture, Rect2(0, 0, internal_size.width, internal_size.height));
-			p_copy_effects.copy_to_rect(denoiser_resource.out_diffuse_texture, denoiser_resource.history_diffuse_texture, Rect2(0, 0, internal_size.width, internal_size.height));
+			p_copy_effects.copy_to_rect(denoiser_resource.diffuse_texture, denoiser_resource.history_diffuse_texture, Rect2(0, 0, internal_size.width, internal_size.height));
 			p_copy_effects.copy_depth_to_rect(denoiser_resource.out_num_frames_accumulated_texture, denoiser_resource.history_num_frames_accumulated_texture, Rect2(0, 0, internal_size.width, internal_size.height));
 		}
 	}
