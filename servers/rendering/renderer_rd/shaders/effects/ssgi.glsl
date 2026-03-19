@@ -146,12 +146,27 @@ vec4 generate_hemisphere_cosine_weighted_direction(inout uint noise) {
 	return vec4(h, pdf);
 }
 
+vec4 generate_hemisphere_uniform_direction(inout uint noise) {
+	float cos_theta = random_float(noise);
+	float sin_theta = sqrt( 1 - cos_theta * cos_theta );
+	float phi = random_float(noise) * 2.0 * PI;
+
+	vec3 h;
+	h.x = sin_theta * cos(phi);
+	h.y = sin_theta * sin(phi);
+	h.z = cos_theta;
+
+	float pdf = 1.0 / (2 * PI);
+
+	return vec4(h, pdf);
+}
+
 vec4 generate_ray_dir_from_normal(vec3 normal, inout uint noise) {
 	vec3 v0 = abs(normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
 	vec3 tangent = normalize(cross(v0, normal));
 	vec3 bitangent = normalize(cross(tangent, normal));
 	mat3 normal_mat = mat3(tangent, bitangent, normal);
-	vec4 dir = generate_hemisphere_cosine_weighted_direction(noise);
+	vec4 dir = generate_hemisphere_uniform_direction(noise);
 	return vec4(normal_mat * dir.xyz, dir.w);
 }
 
@@ -334,7 +349,7 @@ void main() {
 		hit_sample.ray_direction = view_to_world_normal(ray_dir.xyz);
 		hit_sample.distance = length(cur_pos - pos);
 		hit_sample.hit_normal = view_to_world_normal(hit_normal);
-		hit_sample.out_radiance = color.rgb * params.intensity;
+		hit_sample.out_radiance = color.rgb * params.intensity * validity;
 		hit_sample.pdf = luminance(color.rgb) * validity;
 		hit_sample.proposal_pdf = ray_dir.w;
 
