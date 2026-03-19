@@ -1349,6 +1349,29 @@ public:
 	PASS1RC(float, environment_get_ssgi_depth_tolerance, RID)
 	PASS1RC(float, environment_get_ssgi_intensity, RID)
 
+	// ReSTIR
+	PASS9(environment_set_restir, RID, float, float, uint32_t, float, uint32_t, float, float, float)
+	
+	PASS1RC(float, environment_get_restir_temporal_pos_threshold, RID)
+	PASS1RC(float, environment_get_restir_temporal_history_weight, RID)
+	PASS1RC(uint32_t, environment_get_restir_temporal_max_samples_num, RID)
+	PASS1RC(float, environment_get_restir_spatial_resampling_kernel_radius, RID)
+	PASS1RC(uint32_t, environment_get_restir_spatial_num_samples, RID)
+	PASS1RC(float, environment_get_restir_spatial_resampling_occlusion_screen_trace_distance, RID)
+	PASS1RC(float, environment_get_restir_resampling_depth_error_threshold, RID)
+	PASS1RC(float, environment_get_restir_resampling_normal_dot_threshold, RID)
+
+	PASS9(environment_set_restir_denoiser, RID, float, float, float, uint32_t, float, float, float, float)
+
+	PASS1RC(float, environment_get_restir_denoiser_max_frames_accumulated, RID)
+	PASS1RC(float, environment_get_restir_denoiser_history_distance_threshold, RID)
+	PASS1RC(float, environment_get_restir_denoiser_bilateral_filter_spatial_kernel_radius, RID)
+	PASS1RC(uint32_t, environment_get_restir_denoiser_bilateral_filter_num_samples, RID)
+	PASS1RC(float, environment_get_restir_denoiser_bilateral_filter_depth_weight_scale, RID)
+	PASS1RC(float, environment_get_restir_denoiser_bilateral_filter_normal_angle_threshold_scale, RID)
+	PASS1RC(float, environment_get_restir_denoiser_bilateral_filter_strong_blur_variance_threshold, RID)
+	PASS1RC(float, environment_get_restir_denoiser_disocclusion_variance, RID)
+
 	// SDFGI
 
 	PASS11(environment_set_sdfgi, RID, bool, int, float, RS::EnvironmentSDFGIYScale, bool, float, bool, float, float, float)

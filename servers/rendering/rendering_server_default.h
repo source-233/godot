@@ -857,6 +857,9 @@ public:
 
 	FUNC5(environment_set_ssgi, RID, bool, int, float, float)
 
+	FUNC9(environment_set_restir, RID, float, float, uint32_t, float, uint32_t, float, float, float)
+	FUNC9(environment_set_restir_denoiser, RID, float, float, float, uint32_t, float, float, float, float)
+
 	FUNC13(environment_set_glow, RID, bool, Vector<float>, float, float, float, float, EnvironmentGlowBlendMode, float, float, float, float, RID)
 	FUNC1(environment_glow_set_use_bicubic_upscale, bool)
 

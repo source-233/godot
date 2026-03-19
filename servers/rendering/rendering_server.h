@@ -1348,6 +1348,10 @@ public:
 
 	virtual void environment_set_ssgi(RID p_env, bool p_enable, int p_max_steps, float p_depth_tolerance, float p_intensity) = 0;
 
+	virtual void environment_set_restir(RID p_env, float p_temporal_pos_threshold, float p_temporal_history_weight, uint32_t p_temporal_max_samples_num, float p_spatial_resampling_kernel_radius, uint32_t p_spatial_num_samples, float p_spatial_resampling_occlusion_screen_trace_distance, float p_resampling_depth_error_threshold, float p_resampling_normal_dot_threshold) = 0;
+
+	virtual void environment_set_restir_denoiser(RID p_env, float p_max_frames_accumulated, float p_history_distance_threshold, float p_bilateral_filter_spatial_kernel_radius, uint32_t p_bilateral_filter_num_samples, float p_bilateral_filter_depth_weight_scale, float p_bilateral_filter_normal_angle_threshold_scale, float p_bilateral_filter_strong_blur_variance_threshold, float p_disocclusion_variance) = 0;
+
 	enum EnvironmentSDFGIYScale {
 		ENV_SDFGI_Y_SCALE_50_PERCENT,
 		ENV_SDFGI_Y_SCALE_75_PERCENT,

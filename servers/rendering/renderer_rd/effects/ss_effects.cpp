@@ -33,10 +33,10 @@
 #include "core/config/project_settings.h"
 #include "servers/rendering/renderer_rd/effects/copy_effects.h"
 #include "servers/rendering/renderer_rd/effects/restir.h"
+#include "servers/rendering/renderer_rd/environment/gi.h"
 #include "servers/rendering/renderer_rd/storage_rd/material_storage.h"
 #include "servers/rendering/renderer_rd/storage_rd/render_scene_buffers_rd.h"
 #include "servers/rendering/renderer_rd/uniform_set_cache_rd.h"
-#include "servers/rendering/renderer_rd/environment/gi.h"
 
 using namespace RendererRD;
 
@@ -1889,7 +1889,28 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 
 		for (uint32_t v = 0; v < view_count; v++) {
 			ReSTIR::ReSTIRSetting restir_setting{};
+			restir_setting.temporal_pos_threshold = p_settings.restir_temporal_pos_threshold;
+			restir_setting.temporal_history_weight = p_settings.restir_temporal_history_weight;
+			restir_setting.temporal_max_samples_num = p_settings.restir_temporal_max_samples_num;
+			restir_setting.spatial_resampling_kernel_radius = p_settings.restir_spatial_resampling_kernel_radius;
+			restir_setting.spatial_num_samples = p_settings.restir_spatial_num_samples;
+			restir_setting.spatial_resampling_pass_index = 0;
+			restir_setting.spatial_resampling_occlusion_screen_trace_distance = p_settings.restir_spatial_resampling_occlusion_screen_trace_distance;
+			restir_setting.resampling_depth_error_threshold = p_settings.restir_resampling_depth_error_threshold;
+			restir_setting.resampling_normal_dot_threshold = p_settings.restir_resampling_normal_dot_threshold;
 			ssgi.restir[v].set_setting(restir_setting);
+
+			// Set ReSTIR Denoiser settings
+			ReSTIR::ReSTIRDenoiserSetting denoiser_setting;
+			denoiser_setting.max_frames_accumulated = p_settings.restir_denoiser_max_frames_accumulated;
+			denoiser_setting.history_distance_threshold = p_settings.restir_denoiser_history_distance_threshold;
+			denoiser_setting.bilateral_filter_spatial_kernel_radius = p_settings.restir_denoiser_bilateral_filter_spatial_kernel_radius;
+			denoiser_setting.bilateral_filter_num_samples = p_settings.restir_denoiser_bilateral_filter_num_samples;
+			denoiser_setting.bilateral_filter_depth_weight_scale = p_settings.restir_denoiser_bilateral_filter_depth_weight_scale;
+			denoiser_setting.bilateral_filter_normal_angle_threshold_scale = p_settings.restir_denoiser_bilateral_filter_normal_angle_threshold_scale;
+			denoiser_setting.bilateral_filter_strong_blur_variance_threshold = p_settings.restir_denoiser_bilateral_filter_strong_blur_variance_threshold;
+			denoiser_setting.disocclusion_variance = p_settings.restir_denoiser_disocclusion_variance;
+			ssgi.restir[v].set_denoiser_setting(denoiser_setting);
 		}
 	}
 
@@ -2031,7 +2052,7 @@ void SSEffects::screen_space_global_illumination(Ref<RenderSceneBuffersRD> p_ren
 
 			LocalVector<RD::Uniform> uniforms;
 
-			{	
+			{
 				RD::Uniform u_scene_data(RD::UNIFORM_TYPE_UNIFORM_BUFFER, 0, ssgi.ubo);
 				uniforms.push_back(u_scene_data);
 			}

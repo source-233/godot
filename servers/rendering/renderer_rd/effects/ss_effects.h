@@ -178,6 +178,26 @@ public:
 		float depth_tolerance = 0.5F;
 		float intensity = 1.0F;
 
+		// ReSTIR settings
+		float restir_temporal_pos_threshold = 0.05f;
+		float restir_temporal_history_weight = 0.98f;
+		uint32_t restir_temporal_max_samples_num = 16u;
+		float restir_spatial_resampling_kernel_radius = 0.025f;
+		uint32_t restir_spatial_num_samples = 4;
+		float restir_spatial_resampling_occlusion_screen_trace_distance = 10.0f;
+		float restir_resampling_depth_error_threshold = 0.01f;
+		float restir_resampling_normal_dot_threshold = 0.2f;
+
+		// ReSTIR Denoiser settings
+		float restir_denoiser_max_frames_accumulated = 16.0f;
+		float restir_denoiser_history_distance_threshold = 0.5f;
+		float restir_denoiser_bilateral_filter_spatial_kernel_radius = 0.02f;
+		uint32_t restir_denoiser_bilateral_filter_num_samples = 8u;
+		float restir_denoiser_bilateral_filter_depth_weight_scale = 10.0f;
+		float restir_denoiser_bilateral_filter_normal_angle_threshold_scale = 0.5f;
+		float restir_denoiser_bilateral_filter_strong_blur_variance_threshold = 0.05f;
+		float restir_denoiser_disocclusion_variance = 0.1f;
+
 		Size2i full_screen_size;
 	};
 

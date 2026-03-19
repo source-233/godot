@@ -166,6 +166,26 @@ private:
 		float ssgi_depth_tolerance = 0.5;
 		float ssgi_intensity = 1.0;
 
+		// ReSTIR
+		float restir_temporal_pos_threshold = 0.05f;
+		float restir_temporal_history_weight = 0.98f;
+		uint32_t restir_temporal_max_samples_num = 16u;
+		float restir_spatial_resampling_kernel_radius = 0.025f;
+		uint32_t restir_spatial_num_samples = 4;
+		float restir_spatial_resampling_occlusion_screen_trace_distance = 10.0f;
+		float restir_resampling_depth_error_threshold = 0.01f;
+		float restir_resampling_normal_dot_threshold = 0.2f;
+
+		// ReSTIR Denoiser
+		float restir_denoiser_max_frames_accumulated = 16.0f;
+		float restir_denoiser_history_distance_threshold = 0.5f;
+		float restir_denoiser_bilateral_filter_spatial_kernel_radius = 0.02f;
+		uint32_t restir_denoiser_bilateral_filter_num_samples = 8u;
+		float restir_denoiser_bilateral_filter_depth_weight_scale = 10.0f;
+		float restir_denoiser_bilateral_filter_normal_angle_threshold_scale = 0.5f;
+		float restir_denoiser_bilateral_filter_strong_blur_variance_threshold = 0.05f;
+		float restir_denoiser_disocclusion_variance = 0.1f;
+
 		// SDFGI
 		bool sdfgi_enabled = false;
 		int sdfgi_cascades = 4;
@@ -323,6 +343,28 @@ public:
 	int environment_get_ssgi_max_steps(RID p_env) const;
 	float environment_get_ssgi_depth_tolerance(RID p_env) const;
 	float environment_get_ssgi_intensity(RID p_env) const;
+
+	// ReSTIR
+	void environment_set_restir(RID p_env, float p_temporal_pos_threshold, float p_temporal_history_weight, uint32_t p_temporal_max_samples_num, float p_spatial_resampling_kernel_radius, uint32_t p_spatial_num_samples, float p_spatial_resampling_occlusion_screen_trace_distance, float p_resampling_depth_error_threshold, float p_resampling_normal_dot_threshold);
+	float environment_get_restir_temporal_pos_threshold(RID p_env) const;
+	float environment_get_restir_temporal_history_weight(RID p_env) const;
+	uint32_t environment_get_restir_temporal_max_samples_num(RID p_env) const;
+	float environment_get_restir_spatial_resampling_kernel_radius(RID p_env) const;
+	uint32_t environment_get_restir_spatial_num_samples(RID p_env) const;
+	float environment_get_restir_spatial_resampling_occlusion_screen_trace_distance(RID p_env) const;
+	float environment_get_restir_resampling_depth_error_threshold(RID p_env) const;
+	float environment_get_restir_resampling_normal_dot_threshold(RID p_env) const;
+
+	// ReSTIR Denoiser
+	void environment_set_restir_denoiser(RID p_env, float p_max_frames_accumulated, float p_history_distance_threshold, float p_bilateral_filter_spatial_kernel_radius, uint32_t p_bilateral_filter_num_samples, float p_bilateral_filter_depth_weight_scale, float p_bilateral_filter_normal_angle_threshold_scale, float p_bilateral_filter_strong_blur_variance_threshold, float p_disocclusion_variance);
+	float environment_get_restir_denoiser_max_frames_accumulated(RID p_env) const;
+	float environment_get_restir_denoiser_history_distance_threshold(RID p_env) const;
+	float environment_get_restir_denoiser_bilateral_filter_spatial_kernel_radius(RID p_env) const;
+	uint32_t environment_get_restir_denoiser_bilateral_filter_num_samples(RID p_env) const;
+	float environment_get_restir_denoiser_bilateral_filter_depth_weight_scale(RID p_env) const;
+	float environment_get_restir_denoiser_bilateral_filter_normal_angle_threshold_scale(RID p_env) const;
+	float environment_get_restir_denoiser_bilateral_filter_strong_blur_variance_threshold(RID p_env) const;
+	float environment_get_restir_denoiser_disocclusion_variance(RID p_env) const;
 
 	// SDFGI
 	void environment_set_sdfgi(RID p_env, bool p_enable, int p_cascades, float p_min_cell_size, RS::EnvironmentSDFGIYScale p_y_scale, bool p_use_occlusion, float p_bounce_feedback, bool p_read_sky, float p_energy, float p_normal_bias, float p_probe_bias);

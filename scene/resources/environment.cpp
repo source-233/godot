@@ -514,6 +514,180 @@ void Environment::_update_ssgi() {
 			ssgi_intensity);
 }
 
+// ReSTIR
+
+void Environment::set_restir_temporal_pos_threshold(float p_threshold) {
+	restir_temporal_pos_threshold = p_threshold;
+	_update_restir();
+}
+
+float Environment::get_restir_temporal_pos_threshold() const {
+	return restir_temporal_pos_threshold;
+}
+
+void Environment::set_restir_temporal_history_weight(float p_weight) {
+	restir_temporal_history_weight = p_weight;
+	_update_restir();
+}
+
+float Environment::get_restir_temporal_history_weight() const {
+	return restir_temporal_history_weight;
+}
+
+void Environment::set_restir_temporal_max_samples_num(uint32_t p_num) {
+	restir_temporal_max_samples_num = p_num;
+	_update_restir();
+}
+
+uint32_t Environment::get_restir_temporal_max_samples_num() const {
+	return restir_temporal_max_samples_num;
+}
+
+void Environment::set_restir_spatial_resampling_kernel_radius(float p_radius) {
+	restir_spatial_resampling_kernel_radius = p_radius;
+	_update_restir();
+}
+
+float Environment::get_restir_spatial_resampling_kernel_radius() const {
+	return restir_spatial_resampling_kernel_radius;
+}
+
+void Environment::set_restir_spatial_num_samples(uint32_t p_num) {
+	restir_spatial_num_samples = p_num;
+	_update_restir();
+}
+
+uint32_t Environment::get_restir_spatial_num_samples() const {
+	return restir_spatial_num_samples;
+}
+
+void Environment::set_restir_spatial_resampling_occlusion_screen_trace_distance(float p_distance) {
+	restir_spatial_resampling_occlusion_screen_trace_distance = p_distance;
+	_update_restir();
+}
+
+float Environment::get_restir_spatial_resampling_occlusion_screen_trace_distance() const {
+	return restir_spatial_resampling_occlusion_screen_trace_distance;
+}
+
+void Environment::set_restir_resampling_depth_error_threshold(float p_threshold) {
+	restir_resampling_depth_error_threshold = p_threshold;
+	_update_restir();
+}
+
+float Environment::get_restir_resampling_depth_error_threshold() const {
+	return restir_resampling_depth_error_threshold;
+}
+
+void Environment::set_restir_resampling_normal_dot_threshold(float p_threshold) {
+	restir_resampling_normal_dot_threshold = p_threshold;
+	_update_restir();
+}
+
+float Environment::get_restir_resampling_normal_dot_threshold() const {
+	return restir_resampling_normal_dot_threshold;
+}
+
+void Environment::_update_restir() {
+	RS::get_singleton()->environment_set_restir(
+			environment,
+			restir_temporal_pos_threshold,
+			restir_temporal_history_weight,
+			restir_temporal_max_samples_num,
+			restir_spatial_resampling_kernel_radius,
+			restir_spatial_num_samples,
+			restir_spatial_resampling_occlusion_screen_trace_distance,
+			restir_resampling_depth_error_threshold,
+			restir_resampling_normal_dot_threshold);
+}
+
+void Environment::set_restir_denoiser_max_frames_accumulated(float p_frames) {
+	restir_denoiser_max_frames_accumulated = p_frames;
+	_update_restir_denoiser();
+}
+
+float Environment::get_restir_denoiser_max_frames_accumulated() const {
+	return restir_denoiser_max_frames_accumulated;
+}
+
+void Environment::set_restir_denoiser_history_distance_threshold(float p_threshold) {
+	restir_denoiser_history_distance_threshold = p_threshold;
+	_update_restir_denoiser();
+}
+
+float Environment::get_restir_denoiser_history_distance_threshold() const {
+	return restir_denoiser_history_distance_threshold;
+}
+
+void Environment::set_restir_denoiser_bilateral_filter_spatial_kernel_radius(float p_radius) {
+	restir_denoiser_bilateral_filter_spatial_kernel_radius = p_radius;
+	_update_restir_denoiser();
+}
+
+float Environment::get_restir_denoiser_bilateral_filter_spatial_kernel_radius() const {
+	return restir_denoiser_bilateral_filter_spatial_kernel_radius;
+}
+
+void Environment::set_restir_denoiser_bilateral_filter_num_samples(uint32_t p_num) {
+	restir_denoiser_bilateral_filter_num_samples = p_num;
+	_update_restir_denoiser();
+}
+
+uint32_t Environment::get_restir_denoiser_bilateral_filter_num_samples() const {
+	return restir_denoiser_bilateral_filter_num_samples;
+}
+
+void Environment::set_restir_denoiser_bilateral_filter_depth_weight_scale(float p_scale) {
+	restir_denoiser_bilateral_filter_depth_weight_scale = p_scale;
+	_update_restir_denoiser();
+}
+
+float Environment::get_restir_denoiser_bilateral_filter_depth_weight_scale() const {
+	return restir_denoiser_bilateral_filter_depth_weight_scale;
+}
+
+void Environment::set_restir_denoiser_bilateral_filter_normal_angle_threshold_scale(float p_scale) {
+	restir_denoiser_bilateral_filter_normal_angle_threshold_scale = p_scale;
+	_update_restir_denoiser();
+}
+
+float Environment::get_restir_denoiser_bilateral_filter_normal_angle_threshold_scale() const {
+	return restir_denoiser_bilateral_filter_normal_angle_threshold_scale;
+}
+
+void Environment::set_restir_denoiser_bilateral_filter_strong_blur_variance_threshold(float p_threshold) {
+	restir_denoiser_bilateral_filter_strong_blur_variance_threshold = p_threshold;
+	_update_restir_denoiser();
+}
+
+float Environment::get_restir_denoiser_bilateral_filter_strong_blur_variance_threshold() const {
+	return restir_denoiser_bilateral_filter_strong_blur_variance_threshold;
+}
+
+void Environment::set_restir_denoiser_disocclusion_variance(float p_variance) {
+	restir_denoiser_disocclusion_variance = p_variance;
+	_update_restir_denoiser();
+}
+
+float Environment::get_restir_denoiser_disocclusion_variance() const {
+	return restir_denoiser_disocclusion_variance;
+}
+
+
+
+void Environment::_update_restir_denoiser() {
+	RS::get_singleton()->environment_set_restir_denoiser(
+			environment,
+			restir_denoiser_max_frames_accumulated,
+			restir_denoiser_history_distance_threshold,
+			restir_denoiser_bilateral_filter_spatial_kernel_radius,
+			restir_denoiser_bilateral_filter_num_samples,
+			restir_denoiser_bilateral_filter_depth_weight_scale,
+			restir_denoiser_bilateral_filter_normal_angle_threshold_scale,
+			restir_denoiser_bilateral_filter_strong_blur_variance_threshold,
+			restir_denoiser_disocclusion_variance);
+}
+
 // SDFGI
 
 void Environment::set_sdfgi_enabled(bool p_enabled) {
@@ -1426,6 +1600,62 @@ void Environment::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "ssgi_max_steps", PROPERTY_HINT_RANGE, "16,512,1"), "set_ssgi_max_steps", "get_ssgi_max_steps");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ssgi_depth_tolerance", PROPERTY_HINT_RANGE, "0.01,64,0.1"), "set_ssgi_depth_tolerance", "get_ssgi_depth_tolerance");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ssgi_intensity", PROPERTY_HINT_RANGE, "0,16,0.01,or_greater"), "set_ssgi_intensity", "get_ssgi_intensity");
+
+	// ReSTIR
+
+	ClassDB::bind_method(D_METHOD("set_restir_temporal_pos_threshold", "threshold"), &Environment::set_restir_temporal_pos_threshold);
+	ClassDB::bind_method(D_METHOD("get_restir_temporal_pos_threshold"), &Environment::get_restir_temporal_pos_threshold);
+	ClassDB::bind_method(D_METHOD("set_restir_temporal_history_weight", "weight"), &Environment::set_restir_temporal_history_weight);
+	ClassDB::bind_method(D_METHOD("get_restir_temporal_history_weight"), &Environment::get_restir_temporal_history_weight);
+	ClassDB::bind_method(D_METHOD("set_restir_temporal_max_samples_num", "num"), &Environment::set_restir_temporal_max_samples_num);
+	ClassDB::bind_method(D_METHOD("get_restir_temporal_max_samples_num"), &Environment::get_restir_temporal_max_samples_num);
+	ClassDB::bind_method(D_METHOD("set_restir_spatial_resampling_kernel_radius", "radius"), &Environment::set_restir_spatial_resampling_kernel_radius);
+	ClassDB::bind_method(D_METHOD("get_restir_spatial_resampling_kernel_radius"), &Environment::get_restir_spatial_resampling_kernel_radius);
+	ClassDB::bind_method(D_METHOD("set_restir_spatial_num_samples", "num"), &Environment::set_restir_spatial_num_samples);
+	ClassDB::bind_method(D_METHOD("get_restir_spatial_num_samples"), &Environment::get_restir_spatial_num_samples);
+	ClassDB::bind_method(D_METHOD("set_restir_spatial_resampling_occlusion_screen_trace_distance", "distance"), &Environment::set_restir_spatial_resampling_occlusion_screen_trace_distance);
+	ClassDB::bind_method(D_METHOD("get_restir_spatial_resampling_occlusion_screen_trace_distance"), &Environment::get_restir_spatial_resampling_occlusion_screen_trace_distance);
+	ClassDB::bind_method(D_METHOD("set_restir_resampling_depth_error_threshold", "threshold"), &Environment::set_restir_resampling_depth_error_threshold);
+	ClassDB::bind_method(D_METHOD("get_restir_resampling_depth_error_threshold"), &Environment::get_restir_resampling_depth_error_threshold);
+	ClassDB::bind_method(D_METHOD("set_restir_resampling_normal_dot_threshold", "threshold"), &Environment::set_restir_resampling_normal_dot_threshold);
+	ClassDB::bind_method(D_METHOD("get_restir_resampling_normal_dot_threshold"), &Environment::get_restir_resampling_normal_dot_threshold);
+
+	ADD_GROUP("ReSTIR", "restir_");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restir_temporal_pos_threshold", PROPERTY_HINT_RANGE, "0.0,0.2,0.001"), "set_restir_temporal_pos_threshold", "get_restir_temporal_pos_threshold");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restir_temporal_history_weight", PROPERTY_HINT_RANGE, "0.0,1.0,0.001"), "set_restir_temporal_history_weight", "get_restir_temporal_history_weight");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "restir_temporal_max_samples_num", PROPERTY_HINT_RANGE, "1,32,1"), "set_restir_temporal_max_samples_num", "get_restir_temporal_max_samples_num");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restir_spatial_resampling_kernel_radius", PROPERTY_HINT_RANGE, "0.0,0.5,0.001"), "set_restir_spatial_resampling_kernel_radius", "get_restir_spatial_resampling_kernel_radius");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "restir_spatial_num_samples", PROPERTY_HINT_RANGE, "1,16,1"), "set_restir_spatial_num_samples", "get_restir_spatial_num_samples");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restir_spatial_resampling_occlusion_screen_trace_distance", PROPERTY_HINT_RANGE, "0.0,100.0,0.1"), "set_restir_spatial_resampling_occlusion_screen_trace_distance", "get_restir_spatial_resampling_occlusion_screen_trace_distance");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restir_resampling_depth_error_threshold", PROPERTY_HINT_RANGE, "0.0,0.2,0.001"), "set_restir_resampling_depth_error_threshold", "get_restir_resampling_depth_error_threshold");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restir_resampling_normal_dot_threshold", PROPERTY_HINT_RANGE, "0.0,1.0,0.001"), "set_restir_resampling_normal_dot_threshold", "get_restir_resampling_normal_dot_threshold");
+	
+	ClassDB::bind_method(D_METHOD("set_restir_denoiser_max_frames_accumulated", "frames"), &Environment::set_restir_denoiser_max_frames_accumulated);
+	ClassDB::bind_method(D_METHOD("get_restir_denoiser_max_frames_accumulated"), &Environment::get_restir_denoiser_max_frames_accumulated);
+	ClassDB::bind_method(D_METHOD("set_restir_denoiser_history_distance_threshold", "threshold"), &Environment::set_restir_denoiser_history_distance_threshold);
+	ClassDB::bind_method(D_METHOD("get_restir_denoiser_history_distance_threshold"), &Environment::get_restir_denoiser_history_distance_threshold);
+	ClassDB::bind_method(D_METHOD("set_restir_denoiser_bilateral_filter_spatial_kernel_radius", "radius"), &Environment::set_restir_denoiser_bilateral_filter_spatial_kernel_radius);
+	ClassDB::bind_method(D_METHOD("get_restir_denoiser_bilateral_filter_spatial_kernel_radius"), &Environment::get_restir_denoiser_bilateral_filter_spatial_kernel_radius);
+	ClassDB::bind_method(D_METHOD("set_restir_denoiser_bilateral_filter_num_samples", "num"), &Environment::set_restir_denoiser_bilateral_filter_num_samples);
+	ClassDB::bind_method(D_METHOD("get_restir_denoiser_bilateral_filter_num_samples"), &Environment::get_restir_denoiser_bilateral_filter_num_samples);
+	ClassDB::bind_method(D_METHOD("set_restir_denoiser_bilateral_filter_depth_weight_scale", "scale"), &Environment::set_restir_denoiser_bilateral_filter_depth_weight_scale);
+	ClassDB::bind_method(D_METHOD("get_restir_denoiser_bilateral_filter_depth_weight_scale"), &Environment::get_restir_denoiser_bilateral_filter_depth_weight_scale);
+	ClassDB::bind_method(D_METHOD("set_restir_denoiser_bilateral_filter_normal_angle_threshold_scale", "scale"), &Environment::set_restir_denoiser_bilateral_filter_normal_angle_threshold_scale);
+	ClassDB::bind_method(D_METHOD("get_restir_denoiser_bilateral_filter_normal_angle_threshold_scale"), &Environment::get_restir_denoiser_bilateral_filter_normal_angle_threshold_scale);
+	ClassDB::bind_method(D_METHOD("set_restir_denoiser_bilateral_filter_strong_blur_variance_threshold", "threshold"), &Environment::set_restir_denoiser_bilateral_filter_strong_blur_variance_threshold);
+	ClassDB::bind_method(D_METHOD("get_restir_denoiser_bilateral_filter_strong_blur_variance_threshold"), &Environment::get_restir_denoiser_bilateral_filter_strong_blur_variance_threshold);
+	ClassDB::bind_method(D_METHOD("set_restir_denoiser_disocclusion_variance", "variance"), &Environment::set_restir_denoiser_disocclusion_variance);
+	ClassDB::bind_method(D_METHOD("get_restir_denoiser_disocclusion_variance"), &Environment::get_restir_denoiser_disocclusion_variance);
+
+	ADD_GROUP("ReSTIR Denoiser", "restir_denoiser_");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restir_denoiser_max_frames_accumulated", PROPERTY_HINT_RANGE, "1.0,64.0,1.0"), "set_restir_denoiser_max_frames_accumulated", "get_restir_denoiser_max_frames_accumulated");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restir_denoiser_history_distance_threshold", PROPERTY_HINT_RANGE, "0.0,2.0,0.01"), "set_restir_denoiser_history_distance_threshold", "get_restir_denoiser_history_distance_threshold");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restir_denoiser_bilateral_filter_spatial_kernel_radius", PROPERTY_HINT_RANGE, "0.0,0.5,0.001"), "set_restir_denoiser_bilateral_filter_spatial_kernel_radius", "get_restir_denoiser_bilateral_filter_spatial_kernel_radius");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "restir_denoiser_bilateral_filter_num_samples", PROPERTY_HINT_RANGE, "1,32,1"), "set_restir_denoiser_bilateral_filter_num_samples", "get_restir_denoiser_bilateral_filter_num_samples");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restir_denoiser_bilateral_filter_depth_weight_scale", PROPERTY_HINT_RANGE, "0.0,100.0,0.1"), "set_restir_denoiser_bilateral_filter_depth_weight_scale", "get_restir_denoiser_bilateral_filter_depth_weight_scale");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restir_denoiser_bilateral_filter_normal_angle_threshold_scale", PROPERTY_HINT_RANGE, "0.0,1.0,0.01"), "set_restir_denoiser_bilateral_filter_normal_angle_threshold_scale", "get_restir_denoiser_bilateral_filter_normal_angle_threshold_scale");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restir_denoiser_bilateral_filter_strong_blur_variance_threshold", PROPERTY_HINT_RANGE, "0.0,1.0,0.001"), "set_restir_denoiser_bilateral_filter_strong_blur_variance_threshold", "get_restir_denoiser_bilateral_filter_strong_blur_variance_threshold");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "restir_denoiser_disocclusion_variance", PROPERTY_HINT_RANGE, "0.0,1.0,0.001"), "set_restir_denoiser_disocclusion_variance", "get_restir_denoiser_disocclusion_variance");
 
 	// SDFGI
 

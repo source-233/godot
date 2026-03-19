@@ -156,6 +156,28 @@ private:
 	float ssgi_intensity = 1.0;
 	void _update_ssgi();
 
+	// ReSTIR
+	float restir_temporal_pos_threshold = 0.01f;
+	float restir_temporal_history_weight = 0.98f;
+	uint32_t restir_temporal_max_samples_num = 16u;
+	float restir_spatial_resampling_kernel_radius = 0.025f;
+	uint32_t restir_spatial_num_samples = 4;
+	float restir_spatial_resampling_occlusion_screen_trace_distance = 10.0f;
+	float restir_resampling_depth_error_threshold = 0.01f;
+	float restir_resampling_normal_dot_threshold = 0.2f;
+	void _update_restir();
+
+	// ReSTIR Denoiser
+	float restir_denoiser_max_frames_accumulated = 16.0f;
+	float restir_denoiser_history_distance_threshold = 0.5f;
+	float restir_denoiser_bilateral_filter_spatial_kernel_radius = 0.01f;
+	uint32_t restir_denoiser_bilateral_filter_num_samples = 8u;
+	float restir_denoiser_bilateral_filter_depth_weight_scale = 10.0f;
+	float restir_denoiser_bilateral_filter_normal_angle_threshold_scale = 0.5f;
+	float restir_denoiser_bilateral_filter_strong_blur_variance_threshold = 0.05f;
+	float restir_denoiser_disocclusion_variance = 0.1f;
+	void _update_restir_denoiser();
+
 	// SDFGI
 	bool sdfgi_enabled = false;
 	int sdfgi_cascades = 4;
@@ -339,6 +361,42 @@ public:
 	float get_ssgi_depth_tolerance() const;
 	void set_ssgi_intensity(float p_intensity);
 	float get_ssgi_intensity() const;
+
+	// ReSTIR
+	void set_restir_temporal_pos_threshold(float p_threshold);
+	float get_restir_temporal_pos_threshold() const;
+	void set_restir_temporal_history_weight(float p_weight);
+	float get_restir_temporal_history_weight() const;
+	void set_restir_temporal_max_samples_num(uint32_t p_num);
+	uint32_t get_restir_temporal_max_samples_num() const;
+	void set_restir_spatial_resampling_kernel_radius(float p_radius);
+	float get_restir_spatial_resampling_kernel_radius() const;
+	void set_restir_spatial_num_samples(uint32_t p_num);
+	uint32_t get_restir_spatial_num_samples() const;
+	void set_restir_spatial_resampling_occlusion_screen_trace_distance(float p_distance);
+	float get_restir_spatial_resampling_occlusion_screen_trace_distance() const;
+	void set_restir_resampling_depth_error_threshold(float p_threshold);
+	float get_restir_resampling_depth_error_threshold() const;
+	void set_restir_resampling_normal_dot_threshold(float p_threshold);
+	float get_restir_resampling_normal_dot_threshold() const;
+
+	// ReSTIR Denoiser
+	void set_restir_denoiser_max_frames_accumulated(float p_frames);
+	float get_restir_denoiser_max_frames_accumulated() const;
+	void set_restir_denoiser_history_distance_threshold(float p_threshold);
+	float get_restir_denoiser_history_distance_threshold() const;
+	void set_restir_denoiser_bilateral_filter_spatial_kernel_radius(float p_radius);
+	float get_restir_denoiser_bilateral_filter_spatial_kernel_radius() const;
+	void set_restir_denoiser_bilateral_filter_num_samples(uint32_t p_num);
+	uint32_t get_restir_denoiser_bilateral_filter_num_samples() const;
+	void set_restir_denoiser_bilateral_filter_depth_weight_scale(float p_scale);
+	float get_restir_denoiser_bilateral_filter_depth_weight_scale() const;
+	void set_restir_denoiser_bilateral_filter_normal_angle_threshold_scale(float p_scale);
+	float get_restir_denoiser_bilateral_filter_normal_angle_threshold_scale() const;
+	void set_restir_denoiser_bilateral_filter_strong_blur_variance_threshold(float p_threshold);
+	float get_restir_denoiser_bilateral_filter_strong_blur_variance_threshold() const;
+	void set_restir_denoiser_disocclusion_variance(float p_variance);
+	float get_restir_denoiser_disocclusion_variance() const;
 
 	// SDFGI
 	void set_sdfgi_enabled(bool p_enabled);
