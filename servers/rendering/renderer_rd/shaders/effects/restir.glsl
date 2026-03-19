@@ -1,7 +1,7 @@
 #[compute]
 
 #version 450
-// #extension GL_ARB_shading_language_include : enable
+
 #VERSION_DEFINES
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
@@ -44,7 +44,7 @@ layout(push_constant, std430) uniform Params {
 	vec2 reservoir_to_screen_scale;
 	uint frame_count;
 
-	float temporal_pos_threshold;	
+	float temporal_pos_threshold;
 	float temporal_history_weight;
 	uint temporal_max_samples_num;
 

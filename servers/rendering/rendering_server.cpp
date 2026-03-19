@@ -3123,6 +3123,8 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("environment_set_adjustment", "env", "enable", "brightness", "contrast", "saturation", "use_1d_color_correction", "color_correction"), &RenderingServer::environment_set_adjustment);
 	ClassDB::bind_method(D_METHOD("environment_set_ssr", "env", "enable", "max_steps", "fade_in", "fade_out", "depth_tolerance"), &RenderingServer::environment_set_ssr);
 	ClassDB::bind_method(D_METHOD("environment_set_ssgi", "env", "enable", "max_steps", "depth_tolerance", "intensity"), &RenderingServer::environment_set_ssgi);
+	ClassDB::bind_method(D_METHOD("environment_set_restir", "env", "temporal_pos_threshold", "temporal_history_weight", "temporal_max_samples_num", "spatial_resampling_kernel_radius", "spatial_num_samples", "spatial_resampling_occlusion_screen_trace_distance", "resampling_depth_error_threshold", "resampling_normal_dot_threshold"), &RenderingServer::environment_set_restir);
+	ClassDB::bind_method(D_METHOD("environment_set_restir_denoiser", "env", "max_frames_accumulated", "history_distance_threshold", "bilateral_filter_spatial_kernel_radius", "bilateral_filter_num_samples", "bilateral_filter_depth_weight_scale", "bilateral_filter_normal_angle_threshold_scale", "bilateral_filter_strong_blur_variance_threshold", "disocclusion_variance"), &RenderingServer::environment_set_restir_denoiser);
 	ClassDB::bind_method(D_METHOD("environment_set_ssao", "env", "enable", "radius", "intensity", "power", "detail", "horizon", "sharpness", "light_affect", "ao_channel_affect"), &RenderingServer::environment_set_ssao);
 	ClassDB::bind_method(D_METHOD("environment_set_fog", "env", "enable", "light_color", "light_energy", "sun_scatter", "density", "height", "height_density", "aerial_perspective", "sky_affect", "fog_mode"), &RenderingServer::environment_set_fog, DEFVAL(RS::ENV_FOG_MODE_EXPONENTIAL));
 	ClassDB::bind_method(D_METHOD("environment_set_fog_depth", "env", "curve", "begin", "end"), &RenderingServer::environment_set_fog_depth);
@@ -3765,7 +3767,7 @@ void RenderingServer::init() {
 	GLOBAL_DEF_RST("rendering/driver/depth_prepass/disable_for_vendors", "PowerVR,Mali,Adreno,Apple");
 
 	GLOBAL_DEF_RST("rendering/textures/default_filters/use_nearest_mipmap_filter", false);
-	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/textures/default_filters/anisotropic_filtering_level", PROPERTY_HINT_ENUM, String::utf8("Disabled (Fastest),2× (Faster),4× (Fast),8× (Average),16× (Slow)")), 2);
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/textures/default_filters/anisotropic_filtering_level", PROPERTY_HINT_ENUM, String::utf8("Disabled (Fastest),2Ã— (Faster),4Ã— (Fast),8Ã— (Average),16Ã— (Slow)")), 2);
 
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/camera/depth_of_field/depth_of_field_bokeh_shape", PROPERTY_HINT_ENUM, "Box (Fast),Hexagon (Average),Circle (Slowest)"), 1);
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/camera/depth_of_field/depth_of_field_bokeh_quality", PROPERTY_HINT_ENUM, "Very Low (Fastest),Low (Fast),Medium (Average),High (Slow)"), 1);

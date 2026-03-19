@@ -681,6 +681,78 @@ float RendererSceneRender::environment_get_ssgi_intensity(RID p_env) const {
 	return environment_storage.environment_get_ssgi_intensity(p_env);
 }
 
+void RendererSceneRender::environment_set_restir(RID p_env, float p_temporal_pos_threshold, float p_temporal_history_weight, uint32_t p_temporal_max_samples_num, float p_spatial_resampling_kernel_radius, uint32_t p_spatial_num_samples, float p_spatial_resampling_occlusion_screen_trace_distance, float p_resampling_depth_error_threshold, float p_resampling_normal_dot_threshold) {
+	environment_storage.environment_set_restir(p_env, p_temporal_pos_threshold, p_temporal_history_weight, p_temporal_max_samples_num, p_spatial_resampling_kernel_radius, p_spatial_num_samples, p_spatial_resampling_occlusion_screen_trace_distance, p_resampling_depth_error_threshold, p_resampling_normal_dot_threshold);
+}
+
+float RendererSceneRender::environment_get_restir_temporal_pos_threshold(RID p_env) const {
+	return environment_storage.environment_get_restir_temporal_pos_threshold(p_env);
+}
+
+float RendererSceneRender::environment_get_restir_temporal_history_weight(RID p_env) const {
+	return environment_storage.environment_get_restir_temporal_history_weight(p_env);
+}
+
+uint32_t RendererSceneRender::environment_get_restir_temporal_max_samples_num(RID p_env) const {
+	return environment_storage.environment_get_restir_temporal_max_samples_num(p_env);
+}
+
+float RendererSceneRender::environment_get_restir_spatial_resampling_kernel_radius(RID p_env) const {
+	return environment_storage.environment_get_restir_spatial_resampling_kernel_radius(p_env);
+}
+
+uint32_t RendererSceneRender::environment_get_restir_spatial_num_samples(RID p_env) const {
+	return environment_storage.environment_get_restir_spatial_num_samples(p_env);
+}
+
+float RendererSceneRender::environment_get_restir_spatial_resampling_occlusion_screen_trace_distance(RID p_env) const {
+	return environment_storage.environment_get_restir_spatial_resampling_occlusion_screen_trace_distance(p_env);
+}
+
+float RendererSceneRender::environment_get_restir_resampling_depth_error_threshold(RID p_env) const {
+	return environment_storage.environment_get_restir_resampling_depth_error_threshold(p_env);
+}
+
+float RendererSceneRender::environment_get_restir_resampling_normal_dot_threshold(RID p_env) const {
+	return environment_storage.environment_get_restir_resampling_normal_dot_threshold(p_env);
+}
+
+void RendererSceneRender::environment_set_restir_denoiser(RID p_env, float p_max_frames_accumulated, float p_history_distance_threshold, float p_bilateral_filter_spatial_kernel_radius, uint32_t p_bilateral_filter_num_samples, float p_bilateral_filter_depth_weight_scale, float p_bilateral_filter_normal_angle_threshold_scale, float p_bilateral_filter_strong_blur_variance_threshold, float p_disocclusion_variance) {
+	environment_storage.environment_set_restir_denoiser(p_env, p_max_frames_accumulated, p_history_distance_threshold, p_bilateral_filter_spatial_kernel_radius, p_bilateral_filter_num_samples, p_bilateral_filter_depth_weight_scale, p_bilateral_filter_normal_angle_threshold_scale, p_bilateral_filter_strong_blur_variance_threshold, p_disocclusion_variance);
+}
+
+float RendererSceneRender::environment_get_restir_denoiser_max_frames_accumulated(RID p_env) const {
+	return environment_storage.environment_get_restir_denoiser_max_frames_accumulated(p_env);
+}
+
+float RendererSceneRender::environment_get_restir_denoiser_history_distance_threshold(RID p_env) const {
+	return environment_storage.environment_get_restir_denoiser_history_distance_threshold(p_env);
+}
+
+float RendererSceneRender::environment_get_restir_denoiser_bilateral_filter_spatial_kernel_radius(RID p_env) const {
+	return environment_storage.environment_get_restir_denoiser_bilateral_filter_spatial_kernel_radius(p_env);
+}
+
+uint32_t RendererSceneRender::environment_get_restir_denoiser_bilateral_filter_num_samples(RID p_env) const {
+	return environment_storage.environment_get_restir_denoiser_bilateral_filter_num_samples(p_env);
+}
+
+float RendererSceneRender::environment_get_restir_denoiser_bilateral_filter_depth_weight_scale(RID p_env) const {
+	return environment_storage.environment_get_restir_denoiser_bilateral_filter_depth_weight_scale(p_env);
+}
+
+float RendererSceneRender::environment_get_restir_denoiser_bilateral_filter_normal_angle_threshold_scale(RID p_env) const {
+	return environment_storage.environment_get_restir_denoiser_bilateral_filter_normal_angle_threshold_scale(p_env);
+}
+
+float RendererSceneRender::environment_get_restir_denoiser_bilateral_filter_strong_blur_variance_threshold(RID p_env) const {
+	return environment_storage.environment_get_restir_denoiser_bilateral_filter_strong_blur_variance_threshold(p_env);
+}
+
+float RendererSceneRender::environment_get_restir_denoiser_disocclusion_variance(RID p_env) const {
+	return environment_storage.environment_get_restir_denoiser_disocclusion_variance(p_env);
+}
+
 // SDFGI
 
 void RendererSceneRender::environment_set_sdfgi(RID p_env, bool p_enable, int p_cascades, float p_min_cell_size, RS::EnvironmentSDFGIYScale p_y_scale, bool p_use_occlusion, float p_bounce_feedback, bool p_read_sky, float p_energy, float p_normal_bias, float p_probe_bias) {
