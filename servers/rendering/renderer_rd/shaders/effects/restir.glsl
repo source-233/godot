@@ -44,7 +44,10 @@ layout(push_constant, std430) uniform Params {
 	vec2 reservoir_to_screen_scale;
 	uint frame_count;
 
-	float temporal_pos_threshold;
+	float temporal_pos_threshold;	
+	float temporal_history_weight;
+	uint temporal_max_samples_num;
+
 	float spatial_resampling_kernel_radius;
 	uint spatial_num_samples;
 	uint spatial_resampling_pass_index;
@@ -200,12 +203,12 @@ void temporal_resampling(const ivec2 pixel_pos) {
 
 		if (b_history_from_nearby) {
 			Reservoir prev_reservoir = temporal_reservoirs.data[reservoir_index(reservoir_coord_history, ivec2(reservoirs_setting.reservoir_size))];
-			prev_reservoir.sample_count = min(prev_reservoir.sample_count, 20u);
+			prev_reservoir.sample_count = min(prev_reservoir.sample_count, params.temporal_max_samples_num);
 
 			vec3 world_position = screen_to_world_pos(vec3(screen_uv, screen_depth));
 			vec3 history_world_position = screen_to_world_pos(vec3(uv_history.xy, prev_scene_depth));
 
-			float jacobian = calculate_jacobian(world_position, history_world_position, prev_reservoir.hsample);
+			float jacobian = calculate_jacobian(world_position, history_world_position, prev_reservoir.hsample) * params.temporal_history_weight;
 			if (jacobian > 0) {
 				merge_reservoirs(reservoir, prev_reservoir, jacobian, random_float(noise_seed));
 			}
@@ -235,7 +238,7 @@ void spatial_resampling(const ivec2 pixel_pos) {
 	// uint noise_seed = random_seed(ivec3(pixel_pos, params.frame_count));
 	uint noise_seed = reservoir.noise_seed;
 
-	vec3 view_normal = load_normal(reservoir_coord);
+	vec3 view_normal = load_normal(screen_coord);
 	vec3 world_normal = view_to_world_normal(view_normal);
 
 	float noise = random_float(noise_seed);

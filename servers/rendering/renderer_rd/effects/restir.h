@@ -57,7 +57,10 @@ public:
 
 	struct ReSTIRSetting {
 		float temporal_pos_threshold = 0.05f;
-		float spatial_resampling_kernel_radius = 0.01f;
+		float temporal_history_weight = 0.98f;
+		uint32_t temporal_max_samples_num = 16u;
+
+		float spatial_resampling_kernel_radius = 0.025f;
 		uint32_t spatial_num_samples = 4;
 		uint32_t spatial_resampling_pass_index = 0;
 		float spatial_resampling_occlusion_screen_trace_distance = 10.0f;
@@ -138,6 +141,9 @@ private:
 		uint32_t frame_count;
 
 		float temporal_pos_threshold;
+		float temporal_history_weight;
+		uint32_t temporal_max_samples_num;
+
 		float spatial_resampling_kernel_radius;
 		uint32_t spatial_num_samples;
 		uint32_t spatial_resampling_pass_index;

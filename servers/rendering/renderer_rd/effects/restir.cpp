@@ -165,6 +165,8 @@ void ReSTIR::process(Ref<RenderSceneBuffersRD> p_render_buffers, const ReSTIRRes
 	push_constant.reservoir_to_screen_scale[1] = internal_size.height / reservoirs_setting.reservoir_size[1];
 	push_constant.frame_count = RSG::rasterizer->get_frame_number();
 	push_constant.temporal_pos_threshold = restir_setting.temporal_pos_threshold;
+	push_constant.temporal_history_weight = restir_setting.temporal_history_weight;
+	push_constant.temporal_max_samples_num = restir_setting.temporal_max_samples_num;
 	push_constant.spatial_resampling_kernel_radius = restir_setting.spatial_resampling_kernel_radius;
 	push_constant.spatial_num_samples = restir_setting.spatial_num_samples;
 	push_constant.spatial_resampling_pass_index = restir_setting.spatial_resampling_pass_index;
