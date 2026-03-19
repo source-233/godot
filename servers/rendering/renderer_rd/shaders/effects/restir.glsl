@@ -181,7 +181,8 @@ void temporal_resampling(const ivec2 pixel_pos) {
 
 	Reservoir reservoir = reservoirs.data[reservoir_index(reservoir_coord, ivec2(reservoirs_setting.reservoir_size))];
 
-	uint noise_seed = random_seed(ivec3(pixel_pos, params.frame_count));
+	// uint noise_seed = random_seed(ivec3(pixel_pos, params.frame_count));
+	uint noise_seed = reservoir.noise_seed;
 
 	const vec3 uv_history = reprojection(screen_uv, screen_depth);
 	const bool b_history_was_on_screen = all(lessThanEqual(uv_history, vec3(1.0f))) && all(greaterThanEqual(uv_history, vec3(0.0f)));
@@ -210,6 +211,7 @@ void temporal_resampling(const ivec2 pixel_pos) {
 			}
 		}
 	}
+	reservoir.noise_seed = noise_seed;
 
 	temporal_reservoirs.data[reservoir_index(reservoir_coord, ivec2(reservoirs_setting.reservoir_size))] = reservoir;
 }
@@ -230,7 +232,8 @@ void spatial_resampling(const ivec2 pixel_pos) {
 	Reservoir reservoir = temporal_reservoirs.data[reservoir_index(reservoir_coord, ivec2(reservoirs_setting.reservoir_size))];
 
 	vec3 world_position = screen_to_world_pos(vec3(screen_uv, screen_depth));
-	uint noise_seed = random_seed(ivec3(pixel_pos, params.frame_count));
+	// uint noise_seed = random_seed(ivec3(pixel_pos, params.frame_count));
+	uint noise_seed = reservoir.noise_seed;
 
 	vec3 view_normal = load_normal(reservoir_coord);
 	vec3 world_normal = view_to_world_normal(view_normal);
@@ -282,6 +285,7 @@ void spatial_resampling(const ivec2 pixel_pos) {
 			}
 		}
 	}
+	reservoir.noise_seed = noise_seed;
 
 	reservoirs.data[reservoir_index(reservoir_coord, ivec2(reservoirs_setting.reservoir_size))] = reservoir;
 }

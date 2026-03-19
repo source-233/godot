@@ -126,7 +126,7 @@ void main() {
 	}
 
 	Reservoir pre_reservoir = reservoirs.data[reservoir_index(pixel_pos, reservoirs_setting.reservoir_size)];
-	if (pre_reservoir.hsample.pdf > 0.0) {
+	if (pre_reservoir.hsample.pdf > 0.2) {
 		return;
 	}
 
@@ -166,7 +166,8 @@ void main() {
 	ray_dir = normalize(ray_dir);
 
 	// Generate noise seed
-	uint noise_seed = random_seed(ivec3(screen_coord, params.frame_count));
+	// uint noise_seed = random_seed(ivec3(screen_coord, params.frame_count));
+	uint noise_seed = pre_reservoir.noise_seed;
 
 	for (uint j = 0; j < params.max_cascades; j++) {
 		//convert to local bounds
@@ -242,6 +243,7 @@ void main() {
 
 	Reservoir reservoir = new_reservoir();
 	add_sample_to_reservoir(reservoir, hit_sample, ray.w, random_float(noise_seed));
+	reservoir.noise_seed = noise_seed;
 
 	reservoirs.data[reservoir_index(pixel_pos, reservoirs_setting.reservoir_size)] = reservoir;
 

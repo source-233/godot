@@ -340,6 +340,7 @@ void main() {
 
 		Reservoir reservoir = new_reservoir();
 		add_sample_to_reservoir(reservoir, hit_sample, ray_dir.w, random_float(noise_seed));
+		reservoir.noise_seed = noise_seed;
 
 		reservoirs.data[reservoir_index(ivec2(gl_GlobalInvocationID.xy).xy, params.compute_size)] = reservoir;
 

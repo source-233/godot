@@ -13,7 +13,7 @@ struct Reservoir {
 	float weight_sum; // 已处理的权重和
 	float weight; // 被积函数在当前采样点对应的权重，同时也就是重采样重要性采样的realPdf(SIR PDF)的倒数
 	uint sample_count; // 已处理的采样总数，M
-	float pad; // 填充字段，保持结构体大小一致
+	uint noise_seed; // 填充字段，保持结构体大小一致
 };
 
 uint reservoir_index(ivec2 pos, ivec2 reservoir_size) // 到reservoir的索引
@@ -67,7 +67,7 @@ bool add_sample_to_reservoir(
 	float weight_new = hit_sample.pdf / proposal_pdf; // 重要性重采样的权重，pdf/新分布下采样该点的概率
 	bool b_changed_sample = update_reservoir(self, hit_sample, weight_new, noise);
 
-	if (self.hsample.pdf <= 0) {
+	if (self.hsample.pdf < 0.001f) {
 		clean_reservoir(self);
 	} else {
 		self.weight = self.weight_sum / max(self.sample_count * self.hsample.pdf, .00001f);
@@ -86,7 +86,7 @@ bool merge_reservoirs(
 	float weight = other.hsample.pdf * other.weight * other.sample_count;
 	bool b_changed_sample = update_reservoir(self, other.hsample, weight, noise);
 
-	if (self.hsample.pdf <= 0) {
+	if (self.hsample.pdf < 0.001f) {
 		clean_reservoir(self);
 	} else {
 		self.weight = self.weight_sum / max(self.sample_count * self.hsample.pdf, .00001f);
